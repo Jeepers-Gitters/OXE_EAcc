@@ -1,17 +1,17 @@
 ﻿Param(
 #    [Parameter(Mandatory)]
-    $OXEMain = "192.168.92.5",
+    $OXEMain = "192.168.92.52",
     $TicketPort = 2533
 )
 $TicketFields = @(4,5,30,30,20,10,16,5,20,30,2,1,17,5,10,10,5,5,5,1,16,7,1,2,10,5,40,40,10,10,10,10,1,2,2,2,30,5,10,1,17,30,5,5,5,5,5,6,6)
 $FieldsCounter = 1
 
-function Check-OXE 
-{ 
+function Check-OXE
+{
     Write-Host  -NoNewline "Host $OXEMain is reachable : "
 		if ( Test-Connection $OXEMain -Count 1 -Quiet   )
 			{
-				Write-Host -ForegroundColor Green "OK" 
+				Write-Host -ForegroundColor Green "OK"
 			}
         else
             {
@@ -23,7 +23,7 @@ function Check-OXE
         if ( $Client.Connected )
         {
         $EAConnected = $true
-        Write-Host -ForegroundColor Green "OK`n" 
+        Write-Host -ForegroundColor Green "OK`n"
         }
         else
             {
@@ -47,7 +47,7 @@ $TestRequest = "TEST_REQ"
 [Byte[]]$ACKMessage = 0x03, 0x04
 [Byte[]]$TestReply = 0x00, 0x08
 [Byte[]]$TestMessage = 0x54, 0x45, 0x53, 0x54, 0x5F, 0x52, 0x53, 0x50
-[byte[]]$Rcvbytes = 0..4096|%{0xFF}
+[byte[]]$Rcvbytes = 0..4096 | ForEach-Object {0xFF}
 [Int]$PacketDelay = 500
 $data = $datastring = $NULL
 [Int]$TicketCounter = 0
@@ -88,7 +88,7 @@ switch ($data.Length)
     {
         2 {
 #            Write-Host -NoNewLine "Got 2 bytes "
-            if ($datastring -eq $StartMsg) 
+            if ($datastring -eq $StartMsg)
                 {
                 Write-Host -ForegroundColor Yellow "Start sequence reply received, waiting for role..."
                 $i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)
@@ -98,7 +98,7 @@ switch ($data.Length)
                             if ($datastring -eq "50")
                             {
                             Write-Host -ForegroundColor Yellow "Role is Main. Link Established`n"
-                            } 
+                            }
 
                 }
             }
@@ -107,7 +107,7 @@ switch ($data.Length)
                 {
                 Write-Host -ForegroundColor Yellow "Start sequence reply received, waiting for role..."
                 Write-Host -ForegroundColor Yellow "Role is Main. Link Established`n"
-                                } 
+                                }
             }
         5 {
             if ($datastring -eq $FiveBytesAnswer)
@@ -147,7 +147,7 @@ switch ($data.Length) {
             Start-Sleep -m $PacketDelay
             $Stream.Write($TestMessage,0,$TestMessage.Length)
             $MsgCounter++
-            Write-Host "$MsgCounter. Reply with TEST_RSP" 
+            Write-Host "$MsgCounter. Reply with TEST_RSP"
             Write-Host -ForegroundColor Green "--- Running for" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
             } #>
         }
@@ -161,7 +161,7 @@ switch ($data.Length) {
             $TicketCounter++
             $TicketReady = $false
             $substrings = @(
-            $TicketFields | Select -SkipLast 1 | ForEach-Object {
+            $TicketFields | Select-Object -SkipLast 1 | ForEach-Object {
             $datastring.Remove($_)
             $datastring = $datastring.Substring($_)
             $FieldsCounter++
@@ -172,20 +172,20 @@ switch ($data.Length) {
             Write-Host $FieldsCounter "fields processed"
 
             $i = 1
-    ForEach ($Field in $substrings) 
+    ForEach ($Field in $substrings)
     {
-        Write-Host  $i ":" $Field
+        Write-Host  $i   $Field
         $i++
-    } 
+    }
             }
         }
-    
+
     default {
         $datastring = [System.Text.Encoding]::UTF8.GetString($data)
         }
     }
 
-Write-Host -NoNewLine "$MsgCounter. Received $($data.Length) bytes : $datastring " 
+Write-Host -NoNewLine "$MsgCounter. Received $($data.Length) bytes : $datastring "
 <#
     if ($datastring -eq $TestRequest)
         {
@@ -193,16 +193,16 @@ Write-Host -NoNewLine "$MsgCounter. Received $($data.Length) bytes : $datastring
         Start-Sleep -m $PacketDelay
         $Stream.Write($TestMessage,0,$TestMessage.Length)
         $MsgCounter++
-        Write-Host "$MsgCounter. Reply with TEST_RSP" 
-        Write-Host -ForegroundColor Green "--- Running for" $TestKeepAlive.Elapsed 
+        Write-Host "$MsgCounter. Reply with TEST_RSP"
+        Write-Host -ForegroundColor Green "--- Running for" $TestKeepAlive.Elapsed
         }
 #>
 switch ($datastring)
     {
-        "03-04" { Write-Host "Ticket is Ready" 
+        "03-04" { Write-Host "Ticket is Ready"
                 $TicketReady = $true
                 }
-        "00-08" { Write-Host "Test Request" 
+        "00-08" { Write-Host "Test Request"
                 $KeepAliveReq = $true
                             $Stream.Write($TestReply,0,$TestReply.Length)
                             $MsgCounter++
@@ -216,7 +216,7 @@ switch ($datastring)
             Start-Sleep -m $PacketDelay
             $Stream.Write($TestMessage,0,$TestMessage.Length)
             $MsgCounter++
-            Write-Host "$MsgCounter. Reply with TEST_RSP" 
+            Write-Host "$MsgCounter. Reply with TEST_RSP"
             Write-Host -ForegroundColor Green "--- Running for" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
             }
             }
@@ -230,10 +230,10 @@ $MsgCounter++
 #
 # Main body
 #
-if ( -Not (Get-NetTCPConnection -State Established -RemotePort 2533 -ErrorAction SilentlyContinue) ) 
+if ( -Not (Get-NetTCPConnection -State Established -RemotePort 2533 -ErrorAction SilentlyContinue) )
     {
     Write-Host "Connection closed from server."
     }
-Write-Host "Disconnect." $TestKeepAlive.Elapsed.TotalSeconds "Tickets received:" $TicketCounter  
+Write-Host "Disconnect." $TestKeepAlive.Elapsed.TotalSeconds "Tickets received " $TicketCounter
 $Stream.Flush()
 $Client.Close()
