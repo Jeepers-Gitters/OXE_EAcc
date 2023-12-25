@@ -173,17 +173,27 @@ switch ($data.Length) {
 
             Write-Host $FieldsCounter "fields processed"
 
-            $i = 1
+            $i = 0
+
     ForEach ($Field in $substrings)
     {
-        Write-Host  $i   $Field
+    <#
+        if ($_ -eq 0) 
+        {
+       $Field = $Field.ToString()
+        }
+        #>
+#        $FieldHex = [System.BitConverter]::ToString($Field)
+#       $FieldHex = [System.Text.Encoding]::OEM.GetString($Field)
+       $FieldHex = [System.BitConverter]::ToString($Field, $Field.Length)
+        Write-Host  $i   $FieldHex $Field.Length
         $i++
     }
             }
         }
 
     default {
-        $datastring = [System.Text.Encoding]::UTF8.GetString($data)
+        $datastring = [System.Text.Encoding]::ASCII.GetString($data)
         }
     }
 
