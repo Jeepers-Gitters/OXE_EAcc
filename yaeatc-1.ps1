@@ -3,6 +3,13 @@
     $OXEMain = "192.168.92.5",
     $TicketPort = 2533
 )
+
+# Working Directory
+$EACCFolder = "C:\Temp\EACC\"
+# Log file
+$LogFile = "log.txt"
+
+
 $TicketFields = @(4,5,30,30,20,10,16,5,20,30,2,1,17,5,10,10,5,5,5,1,16,7,1,2,10,5,40,40,10,10,10,10,1,2,2,2,30,5,10,1,17,30,5,5,5,5,5,6,6)
 $FieldsNames = @("TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
 
@@ -65,8 +72,12 @@ $ErrorPort = 2
 # Wring answer in Preamble
 $ErrorBytes = 3
 
+<<<<<<< Updated upstream
 #Write-Host $FieldsNames.Length  "fields in 5.2 version"
 
+=======
+Set-Location $EACCFolder
+>>>>>>> Stashed changes
 $Client = New-Object System.Net.Sockets.TCPClient($OXEMain,$TicketPort)
 $Stream = $Client.GetStream()
 $Client.ReceiveTimeout = 31000;
@@ -79,19 +90,24 @@ Check-OXE
 # Preamble
 #
 #Write-Host "Init Phase"
+$timestamp = (Get-Date).toString("yyyy/MM/dd HH:mm:ss")  | Out-File -FilePath $LogFile 
 $Stream.Write($InitMessage,0,$InitMessage.Length)
 $MsgCounter++
 #Start-Sleep -m $PacketDelay
 $i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)
-$data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes,0, $i)
+#$i | Out-File   -FilePath $LogFile -Encoding OEM -Append
+$data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes,0, $i) 
 $datastring = [System.BitConverter]::ToString($data)
-#Write-Host "$MsgCounter. Received $($data.Length) bytes : $datastring"
 
 switch ($data.Length)
     {
         2 {
+<<<<<<< Updated upstream
 #            Write-Host -NoNewLine "Got 2 bytes "
             if ($datastring -eq $StartMsg)
+=======
+            if ($datastring -eq $StartMsg) 
+>>>>>>> Stashed changes
                 {
                 Write-Host -ForegroundColor Yellow "Start sequence reply received, waiting for role..."
                 $i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)
@@ -128,9 +144,9 @@ $MsgCounter++
 $TestKeepAlive = [System.Diagnostics.Stopwatch]::StartNew()
 while(($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0)
 {
-Write-Host -ForegroundColor Yellow "--- Wait for tickets("$TicketCounter")"
-$data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes,0, $i)
 
+Write-Host -ForegroundColor Yellow "--- Wait for tickets($TicketCounter)"
+$data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes,0, $i)
 switch ($data.Length) {
     2 {
     $datastring = [System.BitConverter]::ToString($data)
@@ -155,39 +171,112 @@ switch ($data.Length) {
             } #>
         }
     772 {
-        $datastring = [System.Text.Encoding]::UTF8.GetString($data)
+        $datastring = [System.Text.Encoding]::ASCII.GetString($data)
         if ($TicketReady)
             {
-            $FieldsCounter = 1
+#                $FieldsCounter = 1
+                Write-Host "Ticket Information:"
+                $TicketReady = $false
 
-            Write-Host "Ticket Information"
-            $TicketCounter++
-            $TicketReady = $false
             $substrings = @(
             $TicketFields | Select-Object -SkipLast 1 | ForEach-Object {
             $datastring.Remove($_)
             $datastring = $datastring.Substring($_)
-            $FieldsCounter++
+#            $FieldsCounter++
+
             }
             $string
             )
 
-            Write-Host $FieldsCounter "fields processed"
+            Write-Host "---" $substrings.Count "fields processed"
 
+<<<<<<< Updated upstream
             $i = 1
     ForEach ($Field in $substrings)
     {
         Write-Host  $i   $Field
         $i++
     }
+=======
+            $i = 0
+            $bytesArr = [System.Text.Encoding]::UTF8.GetBytes($substrings[$i])
+            $TicketHeader = [System.BitConverter]::ToString($bytesArr)
+#            $TicketHeader = [System.Text.Encoding]::ASCII.GetString($substrings[$i])
+            if ( $TicketHeader -eq "01-00-02-00")
+            {
+            Write-Host "--- Real ticket received"
+            $TicketCounter++
             }
+            else 
+            {
+            Write-Host "--- Empty ticket received. Ignoring."
+            }
+
+
+<#    ForEach ($Field in $substrings) 
+    {
+        $HexField = [System.BitConverter]::ToString($Field)
+        Write-Host  $i ":" $Field ":" $HexField
+        $i++
+    } 
+#>
+>>>>>>> Stashed changes
+            }
+
+        }
+    774 {
+        $datastring = [System.Text.Encoding]::ASCII.GetString($data)
+        if ($TicketReady)
+            {
+#                $FieldsCounter = 1
+                Write-Host "Ticket Information:"
+                $TicketReady = $false
+
+            $substrings = @(
+            $TicketFields | Select -SkipLast 1 | ForEach-Object {
+            $datastring.Remove($_)
+            $datastring = $datastring.Substring($_)
+#            $FieldsCounter++
+
+            }
+            $string
+            )
+
+            Write-Host "---" $substrings.Count "fields processed"
+
+            $i = 0
+            $bytesArr = [System.Text.Encoding]::UTF8.GetBytes($substrings[$i])
+            $TicketHeader = [System.BitConverter]::ToString($bytesArr)
+#            $TicketHeader = [System.Text.Encoding]::ASCII.GetString($substrings[$i])
+            if ( $TicketHeader -eq "01-00-02-00")
+            {
+            Write-Host "--- Real ticket received $TicketHeader"
+            $TicketCounter++
+            }
+            else 
+            {
+            Write-Host "--- Empty ticket received. Ignoring."
+            }
+
+
+<#    ForEach ($Field in $substrings) 
+    {
+        $HexField = [System.BitConverter]::ToString($Field)
+        Write-Host  $i ":" $Field ":" $HexField
+        $i++
+    } 
+#>
+            }
+
         }
 
     default {
-        $datastring = [System.Text.Encoding]::UTF8.GetString($data)
+        $datastring = [System.Text.Encoding]::UTF8.GetString($data) | Format-Hex | Out-File   -FilePath $LogFile  -Append
+#        Write-Host ">" $datastring 
         }
     }
 
+<<<<<<< Updated upstream
 Write-Host -NoNewLine "$MsgCounter. Received $($data.Length) bytes : $datastring "
 <#
     if ($datastring -eq $TestRequest)
@@ -200,6 +289,11 @@ Write-Host -NoNewLine "$MsgCounter. Received $($data.Length) bytes : $datastring
         Write-Host -ForegroundColor Green "--- Running for" $TestKeepAlive.Elapsed
         }
 #>
+=======
+Write-Host -NoNewLine "$MsgCounter. Received $($data.Length) bytes. "
+$datastring | Out-File   -FilePath $LogFile  -Append
+
+>>>>>>> Stashed changes
 switch ($datastring)
     {
         "03-04" { Write-Host "Ticket is Ready"
@@ -223,6 +317,10 @@ switch ($datastring)
             Write-Host -ForegroundColor Green "--- Running for" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
             }
             }
+        default {
+                    Write-Host "`n" 
+
+        }
     }
 
 
