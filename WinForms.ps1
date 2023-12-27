@@ -1,5 +1,4 @@
-﻿﻿# version 1.0
-# for talking across runspaces.
+﻿# for talking across runspaces.
 $sync = [Hashtable]::Synchronized(@{})
 
 # long running task.
@@ -62,7 +61,6 @@ $MyMultiLineTextBox.Font = New-Object System.Drawing.Font("Lucida Console",14,[S
 $MyMultiLineTextBox.Multiline = $True
 $MyMultiLineTextBox.Width = 980
 $MyMultiLineTextBox.Height = 160
-@ -30,51 +66,17 @@ $MyMultiLineTextBox.BackColor = "#FF012456"
 $MyMultiLineTextBox.ForeColor = "#FFFFFF"
 $MyMultiLineTextBox.ReadOnly = $True
 $MyMultiLineTextBox.Scrollbars = "Both"
