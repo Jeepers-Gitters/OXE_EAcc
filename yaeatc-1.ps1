@@ -3,6 +3,12 @@
     $OXEMain = "192.168.92.52",
     $TicketPort = 2533
 )
+
+# Working Directory
+$EACCFolder = "C:\Temp\EACC\"
+# Log file
+$LogFile = "log.txt"
+
 $TicketFields = @(4,5,30,30,20,10,16,5,20,30,2,1,17,5,10,10,5,5,5,1,16,7,1,2,10,5,40,40,10,10,10,10,1,2,2,2,30,5,10,1,17,30,5,5,5,5,5,6,6)
 $FieldsNames = @("TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
 
@@ -62,7 +68,7 @@ $data = $datastring = $NULL
 $ErrorHost = 1
 # Port 2533 is closed
 $ErrorPort = 2
-# Wring answer in Preamble
+# Wrong answer in Preamble
 $ErrorBytes = 3
 
 Write-Host $FieldsNames.Length  "fields in 5.2 version"
@@ -78,10 +84,12 @@ Check-OXE
 # Preamble
 #
 #Write-Host "Init Phase"
+$timestamp = (Get-Date).toString("yyyy/MM/dd HH:mm:ss")  | Out-File -FilePath $LogFile 
 $Stream.Write($InitMessage,0,$InitMessage.Length)
 $MsgCounter++
 #Start-Sleep -m $PacketDelay
 $i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)
+#$i | Out-File   -FilePath $LogFile -Encoding OEM -Append
 $data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes,0, $i)
 $datastring = [System.BitConverter]::ToString($data)
 #Write-Host "$MsgCounter. Received $($data.Length) bytes : $datastring"

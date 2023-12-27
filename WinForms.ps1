@@ -1,80 +1,82 @@
-﻿$OXEMain = "192.168.92.52"
-# Use Windows Forms for GUI
-Add-Type -AssemblyName System.Windows.Forms
-# Create New Instance
-$CDRWindow = New-Object system.Windows.Forms.Form
-# Window Size
-$CDRWindow.ClientSize = '1000,200'
-# Window Title
-$CDRWindow.Text = "CDR output"
+﻿﻿# version 1.0
+# for talking across runspaces.
+$sync = [Hashtable]::Synchronized(@{})
+
+# long running task.
+$counter = {
+  $count = [PowerShell]::Create().AddScript(
+  {
+    $sync.button.Enabled = $false
+    for ($i = 0; $i -le 20; $i++) {
+      $sync.label.Text = "Received $i"
+      $sync.MyMultiLineTextBox.AppendText("$i Running Script on $(Get-Date) `r`n")
+      $sync.MyMultiLineTextBox.Focus() = $True
+      $sync.MyMultiLineTextBox.ScrollToCaret()
+ #      $sync.textbox.AppendText("`r`n")
+      start-sleep -seconds 1
+    }
+    $sync.button.Enabled = $true
+  }
+  )
+
+  $runspace = [RunspaceFactory]::CreateRunspace()
+  $runspace.ApartmentState = "STA"
+  $runspace.ThreadOptions = "ReuseThread"
+  $runspace.Open()
+  $runspace.SessionStateProxy.SetVariable("sync", $sync)
+
+  $count.Runspace = $runspace
+  $count.BeginInvoke()
+}
+
+# create the form.
+$CDRWindow = New-Object Windows.Forms.Form
+$CDRWindow.ClientSize = New-Object Drawing.Size(1000, 300)
+$CDRWindow.Text ="CDR output"
 $CDRWindow.StartPosition = "CenterScreen"
-# Windows Color Scheme
-#$CDRWindow.BackColor = "#FF012456"
-#$CDRWindow.ForeColor = "#FFFFFF"
+$CDRWindow.FormBorderStyle = "FixedSingle"
+#$CDRWindow.MaximizeBox = $false
+$CDRWindow.Topmost = $True
 
+# create the button.
+$button = New-Object Windows.Forms.Button
+$button.Location = New-Object Drawing.Point(10, 10)
+$button.Width =970
+$button.Text = "Start Counting"
+$button.Add_Click($counter)
 
-$Label = New-Object System.Windows.Forms.Label
-$Label.Font = New-object System.Drawing.Font('Lucida',10,[System.Drawing.FontStyle]::Regular)
-$Label.Text = "Starting on $env:ComputerName to PBX address: $OXEMain" 
-$Label.Location = New-Object System.Drawing.Point(10,10)
-#$Label.Font = 
-$Label.AutoSize = $true
+# create the label.
+$label = New-Object Windows.Forms.Label
+$label.Location = New-Object Drawing.Point(10, 280)
+$label.Width = 100
+$label.Text = 0
+$label.AutoSize = $true
 $CDRWindow.Controls.Add($Label)
+
+
 #$MyMultiLineTextBox = New-Object System.Windows.Forms.TextBox 
 $MyMultiLineTextBox = New-Object System.Windows.Forms.RichTextBox
-$MyMultiLineTextBox.Font = New-Object System.Drawing.Font("Lucida Console",14,[System.Drawing.FontStyle]::Bold)
+#$MyMultiLineTextBox = New-Object System.Windows.Forms.MessagetBox
+
+$MyMultiLineTextBox.Font = New-Object System.Drawing.Font("Lucida Console",14,[System.Drawing.FontStyle]::Regular)
 $MyMultiLineTextBox.Multiline = $True
 $MyMultiLineTextBox.Width = 980
 $MyMultiLineTextBox.Height = 160
-$MyMultiLineTextBox.BackColor = "#FF012456"
+@ -30,51 +66,17 @@ $MyMultiLineTextBox.BackColor = "#FF012456"
 $MyMultiLineTextBox.ForeColor = "#FFFFFF"
 $MyMultiLineTextBox.ReadOnly = $True
 $MyMultiLineTextBox.Scrollbars = "Both"
-
-$MyMultiLineTextBox.location = new-object system.drawing.point(10,30)
+$MyMultiLineTextBox.location =New-object system.drawing.point(11,30)
 $MyMultiLineTextBox.Font = "Lucida ,12"
-#$MyMultiLineTextBox.AppendText("`nRunning Fix...")
-#$MyMultiLineTextBox.AppendText("`nCompleted Successfully.")
 $CDRWindow.controls.Add($MyMultiLineTextBox)
 
-<#
-$Label2 = New-Object System.Windows.Forms.Label
-$Label2.Text = "Last Password Set:"
-$Label2.Location  = New-Object System.Drawing.Point(0,40)
-$Label2.AutoSize = $true
-$CDRWindow.Controls.Add($Label2)
 
+# add controls to the form.
+$sync.button = $button
+$sync.label = $label
+$sync.MyMultiLineTextBox = $MyMultiLineTextBox
+$CDRWindow.Controls.AddRange(@($sync.button, $sync.label, $sync.MyMultiLineTextBox ))
 
-$WindowOutput = New-Object System.Windows.Forms.TextBox
-$WindowOutput.Font = New-Object System.Drawing.Font 'Consolas', 10  # or any other monospaced font
-$WindowOutput.Multiline  = $true
-$WindowOutput.WordWrap   = $true
-$WindowOutput.ScrollBars = 'Both'
-$WindowOutput.Anchor     = 'Left, Top, Right, Bottom'  # so it can grow/shrink with the form
-$WindowOutput.Text = "Check one two three"
-#>
-
-#$i = 0
-$LineToPrint = "This is line number"
-FOR ($i = 1; $i -le 30; $i++)
-{
-#Write-Host "$LineToPrint $i printed on"   $(Get-Date)
-#$Label2.Text = "$LineToPrint $i printed on Get-Date"
-$MyMultiLineTextBox.AppendText("$i Running Script...")
-$MyMultiLineTextBox.AppendText("`r`n")
-#$MyMultiLineTextBox.Select($MyMultiLineTextBox.Text.Length.Update()
-
-#$MyMultiLineTextBox.SelectionStart = $MyMultiLineTextBox.Text.Length
-#$MyMultiLineTextBox.Focus() = $True
-#$MyMultiLineTextBox.ScrollToCaret()
-Start-Sleep 1
-#}
-
-#$MyMultiLineTextBox.Refresh()
-
-$CDRWindow.Update()
-[void] $CDRWindow.Show()
-}
-$CDRWindow.Dispose()
-
-
+# show the form.
+#[Windows.Forms.Application]::Run($CDRWindow)
+[void] $CDRWindow.ShowDialog()
