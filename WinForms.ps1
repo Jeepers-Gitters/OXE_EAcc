@@ -36,12 +36,11 @@ $CDRWindow.Text ="CDR output"
 $CDRWindow.StartPosition = "CenterScreen"
 $CDRWindow.FormBorderStyle = "FixedSingle"
 #$CDRWindow.MaximizeBox = $false
-$CDRWindow.Topmost = $True
 
 # create the button.
 $button = New-Object Windows.Forms.Button
 $button.Location = New-Object Drawing.Point(10, 10)
-$button.Width =970
+$button.Width =980
 $button.Text = "Start Counting"
 $button.Add_Click($counter)
 
@@ -78,5 +77,6 @@ $sync.MyMultiLineTextBox = $MyMultiLineTextBox
 $CDRWindow.Controls.AddRange(@($sync.button, $sync.label, $sync.MyMultiLineTextBox ))
 
 # show the form.
-#[Windows.Forms.Application]::Run($CDRWindow)
-[void] $CDRWindow.ShowDialog()
+[Windows.Forms.Application]::Run($CDRWindow)
+$CDRWindow.Topmost = $True
+#[void] $CDRWindow.ShowDialog()

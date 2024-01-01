@@ -7,7 +7,7 @@
 # Working Directory
 $EACCFolder = "C:\Temp\EACC\"
 # Log file
-$LogFile = "log.txt"
+$LogFile = $EACCFolder + "log.txt"
 
 $TicketFields = @(4,5,30,30,20,10,16,5,20,30,2,1,17,5,10,10,5,5,5,1,16,7,1,2,10,5,40,40,10,10,10,10,1,2,2,2,30,5,10,1,17,30,5,5,5,5,5,6,6)
 $FieldsNames = @("TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
@@ -89,9 +89,10 @@ $Stream.Write($InitMessage,0,$InitMessage.Length)
 $MsgCounter++
 #Start-Sleep -m $PacketDelay
 $i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)
-#$i | Out-File   -FilePath $LogFile -Encoding OEM -Append
+#$i | Format-Hex | Out-File   -FilePath $LogFile -Append
 $data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes,0, $i)
-$datastring = [System.BitConverter]::ToString($data)
+$datastring = [System.BitConverter]::ToString($data)  
+
 #Write-Host "$MsgCounter. Received $($data.Length) bytes : $datastring"
 
 switch ($data.Length)
@@ -137,13 +138,15 @@ while(($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0)
 {
 Write-Host -ForegroundColor Yellow "--- Wait for tickets("$TicketCounter")"
 $data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes,0, $i)
+$data | Format-Hex | Out-File   -FilePath $LogFile -Append
 
 switch ($data.Length) {
     2 {
-    $datastring = [System.BitConverter]::ToString($data)
+    $datastring = [System.BitConverter]::ToString($data) 
+
         }
     3 {
-    $datastring = [System.BitConverter]::ToString($data)
+    $datastring = [System.BitConverter]::ToString($data) 
         }
     5 {
     $datastring = [System.BitConverter]::ToString($data)
@@ -165,21 +168,21 @@ switch ($data.Length) {
         $datastring = [System.Text.Encoding]::UTF8.GetString($data)
         if ($TicketReady)
             {
-            $FieldsCounter = 1
+            $FieldsCounter = 0
 
             Write-Host "Ticket Information"
             $TicketCounter++
             $TicketReady = $false
             $substrings = @(
-            $TicketFields | Select-Object -SkipLast 1 | ForEach-Object {
+            $TicketFields | Select-Object | ForEach-Object {
             $datastring.Remove($_)
             $datastring = $datastring.Substring($_)
             $FieldsCounter++
             }
-            $string
+#            $string
             )
 
-            Write-Host $FieldsCounter "fields processed"
+            Write-Host  $substrings.Length "fields processed"
 
             $i = 0
 
@@ -193,8 +196,8 @@ switch ($data.Length) {
         #>
 #        $FieldHex = [System.BitConverter]::ToString($Field)
 #       $FieldHex = [System.Text.Encoding]::OEM.GetString($Field)
-       $FieldHex = [System.BitConverter]::ToString($Field, $Field.Length)
-        Write-Host  $i   $FieldHex $Field.Length
+#       $FieldHex = [System.BitConverter]::ToString($Field)
+        Write-Host  $i $Field $Field.Length
         $i++
     }
             }
