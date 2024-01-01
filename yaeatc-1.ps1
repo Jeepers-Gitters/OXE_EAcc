@@ -136,21 +136,20 @@ $MsgCounter++
 $TestKeepAlive = [System.Diagnostics.Stopwatch]::StartNew()
 while(($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0)
 {
-Write-Host -ForegroundColor Yellow "--- Wait for tickets("$TicketCounter")"
+Write-Host -ForegroundColor Yellow "--- Wait for tickets($TicketCounter)"
 $data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes,0, $i)
 $data | Format-Hex | Out-File   -FilePath $LogFile -Append
 
 switch ($data.Length) {
     2 {
     $datastring = [System.BitConverter]::ToString($data) 
-
-        }
+      }
     3 {
     $datastring = [System.BitConverter]::ToString($data) 
-        }
+      }
     5 {
     $datastring = [System.BitConverter]::ToString($data)
-        }
+      }
     8 {
         $datastring = [System.Text.Encoding]::UTF8.GetString($data)
 <#        if ($KeepAliveReq)
@@ -163,29 +162,32 @@ switch ($data.Length) {
             Write-Host "$MsgCounter. Reply with TEST_RSP"
             Write-Host -ForegroundColor Green "--- Running for" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
             } #>
-        }
+      }
     772 {
-        $datastring = [System.Text.Encoding]::UTF8.GetString($data)
+        $datastring = [System.Text.Encoding]::ASCII.GetString($data)
+#        $datastring = [System.BitConverter]::ToString($data) 
         if ($TicketReady)
             {
-#            $FieldsCounter = 0
-
-            $TicketCounter++
             $TicketReady = $false
             $TicketForm = @(
             $TicketFields | Select-Object | ForEach-Object {
             $datastring.Remove($_)
             $datastring = $datastring.Substring($_)
-#            $FieldsCounter++
             }
 #            $string
             )
             Write-Host "Ticket Information:" $TicketForm.Length "fields processed"
 
             $i = 0
+    if ( $TicketForm[1] -ne "ED5.2" )
+        {
+            Write-Host "Empty ticket received."
+        }
+    
+    else 
+    {
+     $TicketCounter++
 
-    [byte[]]$TicketHeader = $TicketForm[0]
-    $TicketHeader
     ForEach ($Field in $TicketForm)
     {
     <#
@@ -202,6 +204,10 @@ switch ($data.Length) {
     }
             }
         }
+
+    }
+
+
 
     default {
         $datastring = [System.Text.Encoding]::ASCII.GetString($data)
