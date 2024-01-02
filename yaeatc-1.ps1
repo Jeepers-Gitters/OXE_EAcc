@@ -142,7 +142,7 @@ $MsgCounter++
 $TestKeepAlive = [System.Diagnostics.Stopwatch]::StartNew()
 while(($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0)
 {
-Write-Host -ForegroundColor Yellow "--- Wait for tickets($TicketCounter)"
+Write-Host -ForegroundColor Yellow "--- Wait for tickets ($TicketCounter)"
 $data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes,0, $i)
 $data | Format-Hex | Out-File   -FilePath $LogFile -Append
 
@@ -161,14 +161,14 @@ switch ($data.Length) {
       }
     772 {
         $datastring = [System.Text.Encoding]::ASCII.GetString($data)
-#        $datastring = [System.BitConverter]::ToString($data) 
+        $ProcessTicket = $datastring
         if ($TicketReady)
             {
             $TicketReady = $false
             $TicketForm = @(
             $TicketFields | Select-Object | ForEach-Object {
-            $datastring.Remove($_)
-            $datastring = $datastring.Substring($_)
+            $ProcessTicket.Remove($_)
+            $ProcessTicket = $ProcessTicket.Substring($_)
             }
 #            $string
             )
@@ -195,11 +195,12 @@ switch ($data.Length) {
 #        $FieldHex = [System.BitConverter]::ToString($Field)
 #       $FieldHex = [System.Text.Encoding]::OEM.GetString($Field)
 #       $FieldHex = [System.BitConverter]::ToString($Field)
-        Write-Host  $i $Field $Field.Length
+        Write-Host  $i $Field ":"$Field.Length
         $i++
     }
             }
         }
+        $datastring.Length
 
     }
 
@@ -210,7 +211,8 @@ switch ($data.Length) {
         }
     }
 
-Write-Host -NoNewLine "$MsgCounter. Received $($data.Length) bytes : $datastring "
+Write-Host -NoNewLine "$MsgCounter. Received $($data.Length) bytes." 
+# $datastring  
 
 switch ($datastring)
     {
@@ -235,6 +237,13 @@ switch ($datastring)
             Write-Host -ForegroundColor Green "--- Running for" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
             }
             }
+        default {
+        if ($datastring.Length -lt 772)
+            { 
+            Write-Host -ForegroundColor Red "Unknown command :" $datastring.Length  "-"  $datastring "Log written."
+            $datastring | Format-Hex | Out-File   -FilePath $LogFile -Append
+            }
+        }
     }
 
 
