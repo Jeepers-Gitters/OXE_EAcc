@@ -12,6 +12,7 @@ $LogFile = $EACCFolder + "log.txt"
 $TicketFields = @(4,5,30,30,20,10,16,5,20,30,2,1,17,5,10,10,5,5,5,1,16,7,1,2,10,5,40,40,10,10,10,10,1,2,2,2,30,5,10,1,17,30,5,5,5,5,5,6,6)
 $FieldsNames = @("TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
 $NormalTicket = "01-00-02-00"
+$TcktVersion = "ED5.2"
 $FieldsCounter = 1
 
 function Check-OXE
@@ -28,6 +29,10 @@ function Check-OXE
                 exit $ErrorHost
             }
     Write-Host -NoNewline "Connection on $OXEMain" port "$TicketPort : "
+    $Client = New-Object System.Net.Sockets.TCPClient($OXEMain,$TicketPort)
+    $Stream = $Client.GetStream()
+    $Client.ReceiveTimeout = 31000;
+
         if ( $Client.Connected )
         {
         $EAConnected = $true
@@ -72,13 +77,14 @@ $ErrorPort = 2
 $ErrorBytes = 3
 
 Write-Host $FieldsNames.Length  "fields in 5.2 version"
-$Client = New-Object System.Net.Sockets.TCPClient($OXEMain,$TicketPort)
-$Stream = $Client.GetStream()
-$Client.ReceiveTimeout = 31000;
 #
 # Check connection and port
 #
 Check-OXE
+
+$Client = New-Object System.Net.Sockets.TCPClient($OXEMain,$TicketPort)
+$Stream = $Client.GetStream()
+$Client.ReceiveTimeout = 31000;
 
 #
 # Preamble
@@ -152,16 +158,6 @@ switch ($data.Length) {
       }
     8 {
         $datastring = [System.Text.Encoding]::UTF8.GetString($data)
-<#        if ($KeepAliveReq)
-            {
-            $Stream.Write($TestReply,0,$TestReply.Length)
-            $KeepAliveReq = $false
-            Start-Sleep -m $PacketDelay
-            $Stream.Write($TestMessage,0,$TestMessage.Length)
-            $MsgCounter++
-            Write-Host "$MsgCounter. Reply with TEST_RSP"
-            Write-Host -ForegroundColor Green "--- Running for" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
-            } #>
       }
     772 {
         $datastring = [System.Text.Encoding]::ASCII.GetString($data)
@@ -179,7 +175,7 @@ switch ($data.Length) {
             Write-Host "Ticket Information:" $TicketForm.Length "fields processed"
 
             $i = 0
-    if ( $TicketForm[1] -ne "ED5.2" )
+    if ( $TicketForm[1] -ne $TcktVersion )
         {
             Write-Host "Empty ticket received."
         }
@@ -215,17 +211,7 @@ switch ($data.Length) {
     }
 
 Write-Host -NoNewLine "$MsgCounter. Received $($data.Length) bytes : $datastring "
-<#
-    if ($datastring -eq $TestRequest)
-        {
-        $Stream.Write($TestReply,0,$TestReply.Length)
-        Start-Sleep -m $PacketDelay
-        $Stream.Write($TestMessage,0,$TestMessage.Length)
-        $MsgCounter++
-        Write-Host "$MsgCounter. Reply with TEST_RSP"
-        Write-Host -ForegroundColor Green "--- Running for" $TestKeepAlive.Elapsed
-        }
-#>
+
 switch ($datastring)
     {
         "03-04" { Write-Host "Ticket is Ready"
@@ -259,7 +245,7 @@ $MsgCounter++
 #
 # Main body
 #
-if ( -Not (Get-NetTCPConnection -State Established -RemotePort 2533 -ErrorAction SilentlyContinue) )
+if ( -Not (Get-NetTCPConnection -State Established -RemotePort $TicketPort -ErrorAction SilentlyContinue) )
     {
     Write-Host "Connection closed from server."
     }
