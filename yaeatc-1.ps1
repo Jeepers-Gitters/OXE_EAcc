@@ -202,9 +202,9 @@ switch ($data.Length) {
     }
             }
         }
-    $TicketFlag = [System.BitConverter]::ToString($data[0..3])
+    $TicketFlag = $datastring = [System.BitConverter]::ToString($data[0..3])
         Write-Host "Ticket Flag is " $TicketFlag
-        $datastring = $TicketFlag
+#        $datastring = $TicketFlag
     }
 
 
