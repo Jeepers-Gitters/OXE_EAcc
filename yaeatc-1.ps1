@@ -1,4 +1,5 @@
-﻿Param(
+﻿# version 1.1
+Param(
 #    [Parameter(Mandatory)]
     $OXEMain = "192.168.92.52",
     $TicketPort = 2533
@@ -13,8 +14,10 @@ $TicketFields = @(4,5,30,30,20,10,16,5,20,30,2,1,17,5,10,10,5,5,5,1,16,7,1,2,10,
 $FieldsNames = @("TicketLabel", "TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
 $EmptyTicket = "01-00-01-00"
 $NormalTicket = "01-00-02-00"
+$MAOTicket = "01-00-06-00"
 $TcktVersion = "ED5.2"
 $FieldsCounter = 1
+
 
 function Check-OXE
 {
@@ -29,14 +32,17 @@ function Check-OXE
                 Write-Host "Exiting. Check network connection."
                 exit $ErrorHost
             }
+# (Test-NetConnection $OXEMain  -Port $TicketPort).TcpTestSucceeded
     Write-Host -NoNewline "Connection on $OXEMain" port "$TicketPort : "
     $Client = New-Object System.Net.Sockets.TCPClient($OXEMain,$TicketPort)
     $Stream = $Client.GetStream()
     $Client.ReceiveTimeout = 31000;
 
         if ( $Client.Connected )
+#        if ( (Test-NetConnection -ComputerName $OXEMain -Port $TicketPort ).TcpTestSucceeded )
         {
-        $EAConnected = $true
+ #
+ #       $EAConnected = $true
         Write-Host -ForegroundColor Green "OK`n"
         }
         else
@@ -45,7 +51,7 @@ function Check-OXE
         Write-Host "Exiting. Ethernet Account port closed on $OXEMain."
         exit $ErrorPort
             }
-
+    $Client.Close()
 }
 
 [INT32]$MsgCounter = 1
@@ -83,6 +89,7 @@ Write-Host $FieldsNames.Length  "fields in 5.2 version"
 #
 Check-OXE
 
+# Init Connection
 $Client = New-Object System.Net.Sockets.TCPClient($OXEMain,$TicketPort)
 $Stream = $Client.GetStream()
 $Client.ReceiveTimeout = 31000;
@@ -247,6 +254,10 @@ switch ($datastring)
         $NormalTicket
             {
               Write-Host "Ticket Information"
+            }
+        $MAOTicket
+            {
+              Write-Host "MAO ticket received"
             }
         default {
         if ($datastring.Length -lt 772)
