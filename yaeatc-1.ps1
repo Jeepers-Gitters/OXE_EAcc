@@ -1,4 +1,4 @@
-﻿# version 1.1
+﻿# version 1.3
 Param(
 #    [Parameter(Mandatory)]
     $OXEMain = "192.168.92.52",
@@ -172,17 +172,62 @@ switch ($data.Length) {
 #        $ProcessTicket = $datastring
         $ProcessTicket = [System.Text.Encoding]::ASCII.GetString($data)
         if ($TicketReady)
-            {
-            $TicketReady = $false
+          {
+           $TicketFlag = [System.BitConverter]::ToString($data[0..3])
+           Write-Host -NoNewline "Ticket Flag is " $TicketFlag " "
+#           $TicketReady = $false
+           switch ($TicketFlag)
+             {
+               $EmptyTicket
+                 {
+                   Write-Host "Empty Ticket"
+                 }
+               $MAOTicket
+                 {
+                   Write-Host "MAO ticket"
+                 }
+               $NormalTicket
+                 {
+                   Write-Host "SMDR Ticket"
+                   
             $TicketForm = @(
             $TicketFields | Select-Object | ForEach-Object {
             $ProcessTicket.Remove($_)
             $ProcessTicket = $ProcessTicket.Substring($_)
             }
-#            $string
             )
-#            Write-Host "Ticket Information:" $TicketForm.Length "fields processed"
 
+$f = 0
+$TicketCounter++                       
+ForEach ($Field in $TicketForm)
+  {
+    Write-Host  $f $Field ":"$Field.Length
+    $f++
+  }
+
+
+
+
+                 }
+                
+               default
+                 {
+                   Write-Host "Unknown ticket type. Check logs."
+                 }
+
+             }
+         <#
+         $TicketReady = $false
+         $TicketForm = @(
+         $TicketFields | Select-Object | ForEach-Object 
+            {
+             $ProcessTicket.Remove($_)
+             $ProcessTicket = $ProcessTicket.Substring($_)
+             }
+                        )
+                        #>
+#            Write-Host "Ticket Information:" $TicketForm.Length "fields processed"
+<#
             $i = 0
     if ( $TicketForm[1] -ne $TcktVersion )
         {
@@ -195,12 +240,6 @@ switch ($data.Length) {
 
     ForEach ($Field in $TicketForm)
     {
-    <#
-        if ($_ -eq 0) 
-        {
-       $Field = $Field.ToString()
-        }
-        #>
 #        $FieldHex = [System.BitConverter]::ToString($Field)
 #       $FieldHex = [System.Text.Encoding]::OEM.GetString($Field)
 #       $FieldHex = [System.BitConverter]::ToString($Field)
@@ -209,12 +248,14 @@ switch ($data.Length) {
     }
             }
         }
-    $TicketFlag = $datastring = [System.BitConverter]::ToString($data[0..3])
-        Write-Host "Ticket Flag is " $TicketFlag
+#    $TicketFlag = $datastring = [System.BitConverter]::ToString($data[0..3])
+#        Write-Host "Ticket Flag is " $TicketFlag
 #        $datastring = $TicketFlag
     }
-
-
+#>
+}
+           $TicketReady = $false
+}
 
     default {
         $datastring = [System.Text.Encoding]::ASCII.GetString($data)
@@ -226,10 +267,10 @@ Write-Host -NoNewLine "$MsgCounter. Received $($data.Length) bytes."
 
 switch ($datastring)
     {
-        "03-04" { Write-Host "Ticket is Ready"
+        "03-04" { Write-Host "Ticket Ready Command"
                 $TicketReady = $true
                 }
-        "00-08" { Write-Host "Test Request"
+        "00-08" { Write-Host "Test Request Command"
                 $KeepAliveReq = $true
                             $Stream.Write($TestReply,0,$TestReply.Length)
                             $MsgCounter++
@@ -247,7 +288,7 @@ switch ($datastring)
             Write-Host -ForegroundColor Green "--- Running for" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
             }
             }
-        $EmptyTicket
+<#        $EmptyTicket
             {
               Write-Host "Ticket Information"
             }
@@ -258,7 +299,8 @@ switch ($datastring)
         $MAOTicket
             {
               Write-Host "MAO ticket received"
-            }
+              
+            }#>
         default {
         if ($datastring.Length -lt 772)
             { 
