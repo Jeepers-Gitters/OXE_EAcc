@@ -67,12 +67,11 @@ $TestRequest = "TEST_REQ"
 [Byte[]]$ACKMessage = 0x03, 0x04
 [Byte[]]$TestReply = 0x00, 0x08
 [Byte[]]$TestMessage = 0x54, 0x45, 0x53, 0x54, 0x5F, 0x52, 0x53, 0x50
-[byte[]]$Rcvbytes = 0..4096 | ForEach-Object {0xFF}
+[byte[]]$Rcvbytes = 0..1024 | ForEach-Object {0xFF}
 [Int]$PacketDelay = 500
 $data = $datastring = $NULL
 [Int]$TicketCounter = 0
-#[System.Windows.MessageBox]::Show('Hell yeah')
-
+$TicketReady = $false
 #
 # Errors declaration
 #
@@ -184,7 +183,11 @@ switch ($data.Length) {
                  }
                $MAOTicket
                  {
-                   Write-Host "MAO ticket"
+                   Write-Host "MAO Ticket"
+                   $MAOdata = $ProcessTicket.Substring(4, $ProcessTicket.IndexOf(0x0a) -4) -Split ";" -replace ("=", "`t")
+                   Write-Host $MAOdata | Format-List
+#                   $MAOdata.Substring(4, $MAOdata.IndexOf(0x0a) -4) -split ";"
+
                  }
                $NormalTicket
                  {
@@ -255,6 +258,7 @@ ForEach ($Field in $TicketForm)
 #>
 }
            $TicketReady = $false
+           
 }
 
     default {
@@ -267,47 +271,40 @@ Write-Host -NoNewLine "$MsgCounter. Received $($data.Length) bytes."
 
 switch ($datastring)
     {
-        "03-04" { Write-Host "Ticket Ready Command"
-                $TicketReady = $true
-                }
-        "00-08" { Write-Host "Test Request Command"
-                $KeepAliveReq = $true
-                            $Stream.Write($TestReply,0,$TestReply.Length)
-                            $MsgCounter++
-
-                }
-        "TEST_REQ" { Write-Host "Test Request String"
+        "03-04" 
+          {
+            Write-Host "Ticket Ready Command"
+            $TicketReady = $true
+          }
+        "00-08"
+          {
+            Write-Host "Test Request Command"
+            $KeepAliveReq = $true
+            $Stream.Write($TestReply,0,$TestReply.Length)
+            $MsgCounter++
+          }
+        "TEST_REQ"
+          {
+            Write-Host "Test Request String"
             if ($KeepAliveReq)
-            {
+              {
 #            $Stream.Write($TestReply,0,$TestReply.Length)
 #            $KeepAliveReq = $false
-            Start-Sleep -m $PacketDelay
-            $Stream.Write($TestMessage,0,$TestMessage.Length)
-            $MsgCounter++
-            Write-Host "$MsgCounter. Reply with TEST_RSP"
-            Write-Host -ForegroundColor Green "--- Running for" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
-            }
-            }
-<#        $EmptyTicket
-            {
-              Write-Host "Ticket Information"
-            }
-        $NormalTicket
-            {
-              Write-Host "Ticket Information"
-            }
-        $MAOTicket
-            {
-              Write-Host "MAO ticket received"
-              
-            }#>
-        default {
-        if ($datastring.Length -lt 772)
-            { 
-            Write-Host -ForegroundColor Red "Unknown command :" $datastring.Length  "-"  $datastring "Log written."
-            $datastring | Format-Hex | Out-File   -FilePath $LogFile -Append
-            }
-        }
+              Start-Sleep -m $PacketDelay
+              $Stream.Write($TestMessage,0,$TestMessage.Length)
+              $MsgCounter++
+              Write-Host "$MsgCounter. Reply with TEST_RSP"
+              Write-Host -ForegroundColor Green "--- Running for" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
+              }
+          }
+        default
+          {
+            if ($datastring.Length -lt 772)
+              {
+                Write-Host -ForegroundColor Red "Unknown command :" $datastring.Length  "-"  $datastring "Log written."
+                $datastring | Format-Hex | Out-File   -FilePath $LogFile -Append
+              }
+          }
     }
 
 
