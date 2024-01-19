@@ -1,4 +1,6 @@
-﻿# version 1.3
+﻿
+
+# version 1.3
 Param(
 #    [Parameter(Mandatory)]
     $OXEMain = "192.168.92.52",
@@ -184,10 +186,15 @@ switch ($data.Length) {
                $MAOTicket
                  {
                    Write-Host "MAO Ticket"
-                   $MAOdata = $ProcessTicket.Substring(4, $ProcessTicket.IndexOf(0x0a) -4) -Split ";" -replace ("=", "`t")
-                   Write-Host $MAOdata | Format-List
+                   $MAOdata = $ProcessTicket.Substring(4, $ProcessTicket.IndexOf(0x0a) -4)  -replace ("=", "`t") -replace ".{1}$" -Split ";"
+#                   Write-Host $MAOdata | Format-List
 #                   $MAOdata.Substring(4, $MAOdata.IndexOf(0x0a) -4) -split ";"
-
+                   
+                   Foreach ($MAOLine in $MAOdata)
+                     {
+                       $MAOField = $MAOLine.Split("`t")
+                       Write-Host $MAOfield[0] $MAOField[1] ":" $MAOField.Count 
+                     } 
                  }
                $NormalTicket
                  {
@@ -207,9 +214,6 @@ ForEach ($Field in $TicketForm)
     Write-Host  $f $Field ":"$Field.Length
     $f++
   }
-
-
-
 
                  }
                 
@@ -257,7 +261,9 @@ ForEach ($Field in $TicketForm)
     }
 #>
 }
+# After ticket is processed modify $datastring so its not command again.
            $TicketReady = $false
+           $datastring = "Ticket Info"
            
 }
 
@@ -297,6 +303,10 @@ switch ($datastring)
               Write-Host -ForegroundColor Green "--- Running for" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
               }
           }
+         "Ticket Info"
+            {
+              Write-Host "Ticket Info"
+            }
         default
           {
             if ($datastring.Length -lt 772)
