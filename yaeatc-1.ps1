@@ -69,7 +69,7 @@ $TestRequest = "TEST_REQ"
 [Byte[]]$ACKMessage = 0x03, 0x04
 [Byte[]]$TestReply = 0x00, 0x08
 [Byte[]]$TestMessage = 0x54, 0x45, 0x53, 0x54, 0x5F, 0x52, 0x53, 0x50
-[byte[]]$Rcvbytes = 0..1024 | ForEach-Object {0xFF}
+[byte[]]$Rcvbytes = 0..4096 | ForEach-Object {0xFF}
 [Int]$PacketDelay = 500
 $data = $datastring = $NULL
 [Int]$TicketCounter = 0
@@ -168,6 +168,9 @@ switch ($data.Length) {
     8 {
         $datastring = [System.Text.Encoding]::UTF8.GetString($data)
       }
+
+# Single ticket size 772 bytes
+# Actually less the rest is padded with 00
     772 {
 #        $datastring = [System.Text.Encoding]::ASCII.GetString($data)
 #        $ProcessTicket = $datastring
