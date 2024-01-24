@@ -1,6 +1,5 @@
-﻿
-
-# version 1.3
+﻿# version 1.9
+# add large buffer processing
 Param(
 #    [Parameter(Mandatory)]
     $OXEMain = "192.168.92.52",
@@ -13,6 +12,7 @@ $EACCFolder = "C:\Temp\EACC\"
 $LogFile = $EACCFolder + "log.txt"
 
 $TicketFields = @(4,5,30,30,20,10,16,5,20,30,2,1,17,5,10,10,5,5,5,1,16,7,1,2,10,5,40,40,10,10,10,10,1,2,2,2,30,5,10,1,17,30,5,5,5,5,5,6,6)
+$TicketMessageLength = 772
 $FieldsNames = @("TicketLabel", "TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
 $EmptyTicket = "01-00-01-00"
 $NormalTicket = "01-00-02-00"
@@ -183,7 +183,7 @@ switch ($data.Length) {
 # MAO ticket is variable size but "packet" is still 772 bytes
 # Actually less (528) the rest is padded with "00"
 # 
-    772 
+    $TicketMessageLength 
       {
 #        $datastring = [System.Text.Encoding]::ASCII.GetString($data)
 #        $ProcessTicket = $datastring
@@ -285,7 +285,10 @@ ForEach ($Field in $TicketForm)
 
     default {
         $datastring = [System.Text.Encoding]::ASCII.GetString($data)
-        Write-Host "Buffering data.."
+        if ( $data.Length -gt $TicketMessageLength )
+          {
+            $TicketBuffer = $data
+          }
         }
     }
 
@@ -333,7 +336,7 @@ switch ($datastring)
               }
             else
               {
-                Write-Host "Buffering datum.."
+                Write-Host "Buffering Tickets"
               }
           }
     }
