@@ -14,16 +14,20 @@ $LogFile = $EACCFolder + "log.txt"
 $TicketFields = @(4,5,30,30,20,10,16,5,20,30,2,1,17,5,10,10,5,5,5,1,16,7,1,2,10,5,40,40,10,10,10,10,1,2,2,2,30,5,10,1,17,30,5,5,5,5,5,6,6)
 $TicketMessageLength = 772
 $FieldsNames = @("TicketLabel", "TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
+$TicketMark = "01-00"
 $EmptyTicket = "01-00-01-00"
 $NormalTicket = "01-00-02-00"
 $MAOTicket = "01-00-06-00"
 $TcktVersion = "ED5.2"
+$TicketInfo = "03-04"
 $FieldsCounter = 1
+
+$StartPointer = 0
 
 
 function Check-OXE
 {
-    Write-Host  -NoNewline "Host $OXEMain is reachable : "
+    Write-Host  -NoNewline "Host $OXEMain reachable : "
 		if ( Test-Connection $OXEMain -Count 1 -Quiet   )
 			{
 				Write-Host -ForegroundColor Green "OK"
@@ -59,7 +63,6 @@ function Check-OXE
 [INT32]$MsgCounter = 1
 $StartMsg = "00-01"
 $MainCPU = "50"
-$TicketInfo = "03-04"
 $ThreeBytesAnswer = $StartMsg + "-" + $MainCPU
 $FiveBytesAnswer = $ThreeBytesAnswer + "-" + $TicketInfo
 $ACKMessageStr = "03-04"
@@ -70,7 +73,8 @@ $TestRequest = "TEST_REQ"
 [Byte[]]$TestReply = 0x00, 0x08
 [Byte[]]$TestMessage = 0x54, 0x45, 0x53, 0x54, 0x5F, 0x52, 0x53, 0x50
 # Ethernat buffer size
-[byte[]]$Rcvbytes = 0..4096 | ForEach-Object {0xFF}
+# Info received in this buffer sizes
+[byte[]]$Rcvbytes = 0..8192 | ForEach-Object {0xFF}
 [Int]$PacketDelay = 500
 $data = $datastring = $NULL
 [Int]$TicketCounter = 0
@@ -85,7 +89,7 @@ $ErrorPort = 2
 # Wrong answer in Preamble
 $ErrorBytes = 3
 
-Write-Host $FieldsNames.Length  "fields in 5.2 version"
+# Write-Host $FieldsNames.Length  "fields in 5.2 version"
 #
 # Check connection and port
 #
@@ -239,43 +243,6 @@ ForEach ($Field in $TicketForm)
                  }
 
              }
-         <#
-         $TicketReady = $false
-         $TicketForm = @(
-         $TicketFields | Select-Object | ForEach-Object 
-            {
-             $ProcessTicket.Remove($_)
-             $ProcessTicket = $ProcessTicket.Substring($_)
-             }
-                        )
-                        #>
-#            Write-Host "Ticket Information:" $TicketForm.Length "fields processed"
-<#
-            $i = 0
-    if ( $TicketForm[1] -ne $TcktVersion )
-        {
-            Write-Host "Empty ticket received."
-        }
-    
-    else 
-    {
-     $TicketCounter++
-
-    ForEach ($Field in $TicketForm)
-    {
-#        $FieldHex = [System.BitConverter]::ToString($Field)
-#       $FieldHex = [System.Text.Encoding]::OEM.GetString($Field)
-#       $FieldHex = [System.BitConverter]::ToString($Field)
-        Write-Host  $i $Field ":"$Field.Length
-        $i++
-    }
-            }
-        }
-#    $TicketFlag = $datastring = [System.BitConverter]::ToString($data[0..3])
-#        Write-Host "Ticket Flag is " $TicketFlag
-#        $datastring = $TicketFlag
-    }
-#>
 }
 # After ticket is processed modify $datastring so its not command again.
            $TicketReady = $false
@@ -283,12 +250,104 @@ ForEach ($Field in $TicketForm)
            
 }
 
+# Buffer processing
+#
     default {
         $datastring = [System.Text.Encoding]::ASCII.GetString($data)
-        if ( $data.Length -gt $TicketMessageLength )
-          {
-            $TicketBuffer = $data
+#        if (( $data.Length -gt $TicketMessageLength ) -and ($TicketReady))
+        if ( $data.Length -gt $TicketMessageLength ) 
+                  {
+            $BufferBuffer = $data
+            Write-Host "Read bytes:" $BufferBuffer.Length
+
+While ( $StartPointer -lt $BufferBuffer.Length )
+{
+ $datastring = [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + 1)]) 
+switch ( $datastring )
+  {
+    $TicketInfo
+      {
+        Write-Host "Continue buffer processing ..."
+        $TicketReady = $true
+
+        $StartPointer++
+        $StartPointer++
+      }
+    $TicketMark
+      {
+        Write-Host "Start buffer processing.."
+      }
+    default
+      {
+        Write-Host "Wrong data...Check logs."
+      }
+  }
+
+#
+# Load one ticket record into $data variable
+$data = $BufferBuffer[$StartPointer..($StartPointer + $TicketMessageLength)]
+#
+# convert this record to ASCII
+$ProcessTicket = [System.Text.Encoding]::ASCII.GetString($data)
+Write-Host "Buffer Pointer:" $StartPointer "/" $BufferBuffer.Length
+# If ($TicketReady)
+  
+           $TicketFlag = [System.BitConverter]::ToString($ProcessTicket[0..3])
+           Write-Host -NoNewline "Ticket Flag is " $TicketFlag " "
+           switch ($TicketFlag)
+             {
+               $EmptyTicket
+                 {
+                   Write-Host "Empty Ticket"
+                 }
+               $MAOTicket
+                 {
+                   Write-Host "MAO Ticket"
+                   $MAOdata = $ProcessTicket.Substring(4, $ProcessTicket.IndexOf(0x0a) -4)  -replace ("=", "`t") -replace ".{1}$" -Split ";"
+                   Foreach ($MAOLine in $MAOdata)
+                     {
+                       $MAOField = $MAOLine.Split("`t")
+                       Write-Host $MAOfield[0] $MAOField[1] ":" $MAOField.Count 
+                     } 
+                 }
+               $NormalTicket
+                 {
+                   Write-Host "SMDR Ticket"
+                   $TicketForm = @(
+                   $TicketFields | Select-Object | ForEach-Object {
+                     $ProcessTicket.Remove($_)
+                     $ProcessTicket = $ProcessTicket.Substring($_)
+                   }
+                   )
+                   $f = 0
+                   Write-Host "--- Ticket " $TicketCounter ":"
+
+                   ForEach ($Field in $TicketForm)
+                     {
+                       Write-Host  $f $Field ":"$Field.Length
+                       $f++
+                     }
+                  $TicketCounter++
+                  $TicketReady = $false
+                 }
+                
+               default
+                 {
+                   Write-Host "Unknown ticket type. Check logs."
+                 }
+
+             }
+           
+$StartPointer = $StartPointer + $TicketMessageLength
+
+#$StartPointer++
+
+  Write-Host "Done buffer processing. $TicketCounter tickets processed "
+}
+
           }
+                     $datastring = "Ticket Info"
+        
         }
     }
 
@@ -325,7 +384,7 @@ switch ($datastring)
           }
          "Ticket Info"
             {
-              Write-Host "Ticket Info"
+              Write-Host "Ticket Information"
             }
         default
           {
@@ -336,7 +395,8 @@ switch ($datastring)
               }
             else
               {
-                Write-Host "Buffering Tickets"
+                Write-Host "Buffer processing.."
+
               }
           }
     }
@@ -353,6 +413,6 @@ if ( -Not (Get-NetTCPConnection -State Established -RemotePort $TicketPort -Erro
     {
     Write-Host "Connection closed from server."
     }
-Write-Host "Disconnect." $TestKeepAlive.Elapsed.TotalSeconds "Tickets received " $TicketCounter
+Write-Host "Disconnect." "Uptime: " $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss') "Tickets received :" $TicketCounter
 $Stream.Flush()
 $Client.Close()

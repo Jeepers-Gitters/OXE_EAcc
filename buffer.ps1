@@ -1,6 +1,7 @@
 ﻿$FieldsNames = @("TicketLabel", "TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
 $TicketFields = @(4,5,30,30,20,10,16,5,20,30,2,1,17,5,10,10,5,5,5,1,16,7,1,2,10,5,40,40,10,10,10,10,1,2,2,2,30,5,10,1,17,30,5,5,5,5,5,6,6)
 $EmptyTicket = "01-00-01-00"
+$TicketMark = "01-00"
 $NormalTicket = "01-00-02-00"
 $MAOTicket = "01-00-06-00"
 $FlagLength ="0..3"
@@ -12,7 +13,10 @@ $StartPointer = 0
 $TicketMessageLength = 771
 
 $TicketReady = $true
-$TicketCounter = 1
+$TicketCounter = 0
+
+# Reading data from file  
+#
 $FilePath = "C:\Temp\EACC\"
 $BufferFile = "binary.txt"
 $FullPath = $FilePath + $BufferFile
@@ -20,12 +24,16 @@ Set-Location $FilePath
 Write-Host "Changing working folder to" (Get-Location).Path
 Write-Host "Reading buffer from" (Get-Item $BufferFile).FullName 
 $BufferBuffer = Get-Content $FullPath -Encoding Byte
-#$BufferBuffer.GetType() | select BaseType
 Write-Host "Read bytes:" $BufferBuffer.Length
+# 
+# Done loading data
 
-While ( $StartPointer -lt $BufferBuffer.Length )
+if ( $TicketReady ) 
 {
+  While ( $StartPointer -lt $BufferBuffer.Length )
+  {
 $datastring = [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + 1)]) 
+Write-Host $datastring | FHX
 switch ( $datastring )
   {
     $TicketInfo
@@ -36,6 +44,11 @@ switch ( $datastring )
         $StartPointer++
         $StartPointer++
       }
+    $TicketMark
+      {
+        Write-Host "Start buffer processing.."
+        $StartPointer++
+      }
     default
       {
         Write-Host "Wrong data...Check logs."
@@ -44,7 +57,7 @@ switch ( $datastring )
 
 $data = $BufferBuffer[$StartPointer..($StartPointer + $TicketMessageLength)]
 $ProcessTicket = [System.Text.Encoding]::ASCII.GetString($data)
-Write-Host "Start at position" $StartPointer
+Write-Host "Buffer Pointer:" $StartPointer "/" $BufferBuffer.Length
 If ($TicketReady)
           {
 #           $TicketFlag = [System.BitConverter]::ToString($data[0..3])
@@ -98,9 +111,9 @@ If ($TicketReady)
            }
 $StartPointer = $StartPointer + $TicketMessageLength
 $StartPointer++
-  Write-Host "Done buffer processing."
+  Write-Host "Done buffer processing. $TicketCounter tickets processed "
 }
-
+}
            
 
 
