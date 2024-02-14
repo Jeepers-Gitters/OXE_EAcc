@@ -196,14 +196,11 @@ switch ($data.Length) {
 # 
     $TicketMessageLength 
       {
-#        $datastring = [System.Text.Encoding]::ASCII.GetString($data)
-#        $ProcessTicket = $datastring
           $ProcessTicket = [System.Text.Encoding]::ASCII.GetString($data)
           if ($TicketReady)
             {
               $TicketFlag = [System.BitConverter]::ToString($data[0..3])
                Write-Host -NoNewline "Ticket Flag is " $TicketFlag " "
-#           $TicketReady = $false
              switch ($TicketFlag)
                {
                  $EmptyTicket
@@ -214,8 +211,6 @@ switch ($data.Length) {
                    {
                    Write-Host "MAO Ticket"
                    $MAOdata = $ProcessTicket.Substring(4, $ProcessTicket.IndexOf(0x0a) -4)  -replace ("=", "`t") -replace ".{1}$" -Split ";"
-#                   Write-Host $MAOdata | Format-List
-#                   $MAOdata.Substring(4, $MAOdata.IndexOf(0x0a) -4) -split ";"
                    
                    Foreach ($MAOLine in $MAOdata)
                      {
@@ -328,7 +323,8 @@ if ( $LeftToProcess -lt $TicketMessageLength )
                      {
                        $MAOField = $MAOLine.Split("`t")
                        Write-Host $MAOfield[0] $MAOField[1] ":" $MAOField.Count 
-                     } 
+                     }
+                   $MAOCounter++ 
                  }
                $NormalTicket
                  {
