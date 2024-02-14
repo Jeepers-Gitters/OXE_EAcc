@@ -189,8 +189,8 @@ switch ($data.Length) {
       }
 
 # Single accounting ticket is of fixed size 772 bytes
-# MAO ticket is variable size but "packet" is still 772 bytes
 # Actually less (528) the rest is padded with "00"
+# MAO ticket is variable size but "packet" is still 772 bytes
 # 
     $TicketMessageLength 
       {
@@ -223,7 +223,7 @@ switch ($data.Length) {
                  }
                $NormalTicket
                  {
-                   Write-Host "SMDR Ticket"
+                   Write-Host "SMDR Ticket" $ProcessTicket.Lengt
                    
             $TicketForm = @(
             $TicketFields | Select-Object | ForEach-Object {
@@ -258,18 +258,22 @@ ForEach ($Field in $TicketForm)
 # Buffer processing
 #
     default {
-        $datastring = [System.Text.Encoding]::ASCII.GetString($data)
-#        if (( $data.Length -gt $TicketMessageLength ) -and ($TicketReady))
-        if ( $data.Length -gt $TicketMessageLength ) 
-                  {
-            $BufferBuffer = $data
-            Write-Host "Read bytes:" $BufferBuffer.Length
+              $datastring = [System.Text.Encoding]::ASCII.GetString($data)
+              $BufferBuffer = $data
+              Write-Host "Read buffer:" $BufferBuffer.Length
+if ( $TicketTruncated )
+     {
+       $BufferBuffer = $TruncPart1 + $data
+       Write-Host "Appended data left from previous packets."
+       $TicketTruncated = $false
+     }
+$StartPointer = 0    
 
 While ( $StartPointer -lt $BufferBuffer.Length )
-{
+  {
  $datastring = [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + 1)]) 
 switch ( $datastring )
-  {
+    {
     $TicketInfo
       {
         Write-Host "Continue buffer processing ..."
@@ -286,7 +290,7 @@ switch ( $datastring )
       {
         Write-Host "Wrong data...Check logs."
       }
-  }
+   }
 
 #
 # Load one ticket record into $data variable
@@ -296,10 +300,12 @@ $data = $BufferBuffer[$StartPointer..($StartPointer + $TicketMessageLength)]
 $ProcessTicket = [System.Text.Encoding]::ASCII.GetString($data)
 Write-Host "Buffer Pointer:" $StartPointer "/" $BufferBuffer.Length
 $LeftToProcess = $BufferBuffer.Length - $StartPointer 
+
 if ( $LeftToProcess -lt $TicketMessageLength )
   {
     Write-Host "Bytes left :" $LeftToProcess ". Next ticket is truncated."
     $TicketTruncated = $true
+    $TruncPart1 = $data
   }
 # If ($TicketReady)
   
@@ -323,12 +329,18 @@ if ( $LeftToProcess -lt $TicketMessageLength )
                  }
                $NormalTicket
                  {
-                   Write-Host "SMDR Ticket"
-                   $TicketForm = @(
-                   $TicketFields | Select-Object | ForEach-Object {
-                     $ProcessTicket.Remove($_)
-                     $ProcessTicket = $ProcessTicket.Substring($_)
-                   }
+                   if ( -Not ($TicketTruncated) )
+                     {
+                       Write-Host "SMDR Ticket. The length is "  $ProcessTicket.Length
+#                   Write-Host " Data :" $ProcessTicket
+                       $TicketCounter++
+                       $TicketReady = $false
+
+                       $TicketForm = @(
+                       $TicketFields | Select-Object | ForEach-Object {
+                       $ProcessTicket.Remove($_)
+                       $ProcessTicket = $ProcessTicket.Substring($_)
+                       }
                    )
                    $f = 0
                    Write-Host "--- Ticket " $TicketCounter ":"
@@ -338,9 +350,14 @@ if ( $LeftToProcess -lt $TicketMessageLength )
                        Write-Host  $f $Field ":"$Field.Length
                        $f++
                      }
-                  $TicketCounter++
-                  $TicketReady = $false
-                 }
+#                  $TicketCounter++
+#                  $TicketReady = $false
+                      }
+                      else 
+                        {
+                          Write-Host " Waiting for the rest of ticket..."
+                        }
+                }
                 
                default
                  {
@@ -351,12 +368,12 @@ if ( $LeftToProcess -lt $TicketMessageLength )
            
 $StartPointer = $StartPointer + $TicketMessageLength
 
-#$StartPointer++
 
-  Write-Host "Done buffer processing. $TicketCounter tickets processed "
-}
-
-          }
+  Write-Host "Buffer processing.. $TicketCounter tickets processed "
+  }
+  Write-Host $StartPointer "vs" $BufferBuffer.Length
+# Проверка на длину буфера закрывающая скобка
+#        }
                      $datastring = "Ticket Info"
         
         }
