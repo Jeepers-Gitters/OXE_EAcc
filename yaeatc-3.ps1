@@ -73,7 +73,7 @@ function ProcessOneTicket()
                    )
 
     $Global:CDRCounter++
-    Write-Host "--- Ticket " $Global:CDRCounter ":"
+    Write-Host -ForegroundColor Yellow "--- Ticket " $Global:CDRCounter ":"
     for ($f = 2; $f -lt $TicketForm.Length; $f++)
       {
         Write-Host  $FieldsNames[$f]":" $TicketForm[$f].Trim()
