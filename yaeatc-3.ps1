@@ -231,14 +231,13 @@ switch ($data.Length) {
             }
             )
 
-$f = 0
 $CDRCounter++                       
-ForEach ($Field in $TicketForm)
-  {
-#    Write-Host  $f $Field ":"$Field.Length
-    Write-Host  $FieldsNames[$f]":" $Field.Trim()
-    $f++
-  }
+
+                      for ($f = 2; $f -lt $TicketForm.Length; $f++)
+                     {
+                        Write-Host  $FieldsNames[$f]":" $TicketForm[$f].Trim()
+                     }
+
 
                  }
                 
@@ -343,17 +342,12 @@ if ( $LeftToProcess -lt $TicketMessageLength )
                        $ProcessTicket = $ProcessTicket.Substring($_)
                        }
                    )
-                   $f = 0
                    Write-Host "--- Ticket " $CDRCounter ":"
 
-                   ForEach ($Field in $TicketForm)
+                    for ($f = 2; $f -lt $TicketForm.Length; $f++)
                      {
-#                       Write-Host  $f $Field.Trim() ":"$Field.Length
-                        Write-Host  $FieldsNames[$f]":" $Field.Trim()
-                        $f++
+                        Write-Host  $FieldsNames[$f]":" $TicketForm[$f].Trim()
                      }
-#                  $CDRCounter++
-#                  $TicketReady = $false
                       }
                       else 
                         {
