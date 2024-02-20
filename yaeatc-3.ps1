@@ -23,12 +23,12 @@ $TcktVersion = "ED5.2"
 $TicketInfo = "03-04"
 $FieldsCounter = 1
 $TicketTruncated = $false
-
+$Global:CDRCounter = 0
 $StartPointer = 0
 
 
 function Check-OXE
-{
+  {
     Write-Host  -NoNewline "Host $OXEMain reachable : "
 		if ( Test-Connection $OXEMain -Count 1 -Quiet   )
 			{
@@ -60,7 +60,25 @@ function Check-OXE
         exit $ErrorPort
             }
     $Client.Close()
-}
+  }
+
+function ProcessOneTicket()
+  {
+    Write-Host "SMDR Ticket. The length is "  $ProcessTicket.Length
+    $TicketForm = @(
+    $TicketFields | Select-Object | ForEach-Object {
+    $ProcessTicket.Remove($_)
+    $ProcessTicket = $ProcessTicket.Substring($_)
+    }
+                   )
+
+    $Global:CDRCounter++
+    Write-Host "--- Ticket " $Global:CDRCounter ":"
+    for ($f = 2; $f -lt $TicketForm.Length; $f++)
+      {
+        Write-Host  $FieldsNames[$f]":" $TicketForm[$f].Trim()
+      }
+   }
 
 [INT32]$MsgCounter = 1
 $StartMsg = "00-01"
@@ -83,7 +101,6 @@ $TestRequest = "TEST_REQ"
 [byte[]]$Rcvbytes = 0..4096 | ForEach-Object {0xFF}
 [Int]$PacketDelay = 500
 $data = $datastring = $NULL
-[Int]$CDRCounter = 0
 [Int]$MAOCounter = 0
 [Int]$VOIPCounter = 0
 $TicketReady = $false
@@ -164,7 +181,7 @@ $MsgCounter++
 $TestKeepAlive = [System.Diagnostics.Stopwatch]::StartNew()
 while(($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0)
 {
-Write-Host -ForegroundColor Yellow "--- Wait for tickets" $CDRCounter "/" $MAOCounter "/" $VOIPCounter 
+Write-Host -ForegroundColor Yellow "--- Wait for tickets" $Global:CDRCounter "/" $MAOCounter "/" $VOIPCounter 
 $data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes,0, $i)
 $data | Format-Hex | Out-File   -FilePath $LogFile -Append
 
@@ -222,19 +239,7 @@ switch ($data.Length) {
                  }
                $NormalTicket
                  {
-                   Write-Host "SMDR Ticket.The length is "  $ProcessTicket.Length
-                   $TicketForm = @(
-                   $TicketFields | Select-Object | ForEach-Object {
-                   $ProcessTicket.Remove($_)
-                   $ProcessTicket = $ProcessTicket.Substring($_)
-                   }
-                   )
-                   $CDRCounter++                       
-                   for ($f = 2; $f -lt $TicketForm.Length; $f++)
-                     {
-                        Write-Host  $FieldsNames[$f]":" $TicketForm[$f].Trim()
-                     }
-
+                   ProcessOneTicket
                  }
                 
                default
@@ -326,10 +331,9 @@ if ( $LeftToProcess -lt $TicketMessageLength )
                $NormalTicket
                  {
                    if ( -Not ($TicketTruncated) )
+<#
                      {
                        Write-Host "SMDR Ticket. The length is "  $ProcessTicket.Length
-                       $CDRCounter++
-                       $TicketReady = $false
 
                        $TicketForm = @(
                        $TicketFields | Select-Object | ForEach-Object {
@@ -337,17 +341,21 @@ if ( $LeftToProcess -lt $TicketMessageLength )
                        $ProcessTicket = $ProcessTicket.Substring($_)
                        }
                    )
-                   Write-Host "--- Ticket " $CDRCounter ":"
-
+                   $Global:CDRCounter++
+                   Write-Host "--- Ticket " $Global:CDRCounter ":"
                     for ($f = 2; $f -lt $TicketForm.Length; $f++)
                      {
                         Write-Host  $FieldsNames[$f]":" $TicketForm[$f].Trim()
                      }
+                      } #>
+                      {
+                       ProcessOneTicket
                       }
                       else 
                         {
                           Write-Host " Waiting for the rest of ticket..."
                         }
+                $TicketReady = $false
                 }
                 
                default
@@ -360,7 +368,7 @@ if ( $LeftToProcess -lt $TicketMessageLength )
 $StartPointer = $StartPointer + $TicketMessageLength
 
 
-  Write-Host "Buffer processing.. $CDRCounter tickets processed "
+  Write-Host "Buffer processing.. $Global:CDRCounter tickets processed "
   }
 #  Write-Host $StartPointer "vs" $BufferBuffer.Length
 # Проверка на длину буфера закрывающая скобка
@@ -398,7 +406,7 @@ switch ($datastring)
               $Stream.Write($TestMessage,0,$TestMessage.Length)
               $MsgCounter++
               Write-Host "$MsgCounter. Reply with TEST_RSP"
-              Write-Host -ForegroundColor Green "--- Running for" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
+              Write-Host -ForegroundColor Green "--- Runtime" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
               }
           }
          "Ticket Info"
@@ -432,6 +440,6 @@ if ( -Not (Get-NetTCPConnection -State Established -RemotePort $TicketPort -Erro
     {
     Write-Host "Connection closed from server."
     }
-Write-Host "Disconnect." "Uptime: " $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss') "Tickets received :" $CDRCounter
+Write-Host "Disconnect." "Uptime: " $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss') "Tickets received :" $Global:CDRCounter
 $Stream.Flush()
 $Client.Close()
