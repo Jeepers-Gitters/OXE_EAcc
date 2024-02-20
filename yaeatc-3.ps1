@@ -222,22 +222,18 @@ switch ($data.Length) {
                  }
                $NormalTicket
                  {
-                   Write-Host "SMDR Ticket" $ProcessTicket.Lengt
-                   
-            $TicketForm = @(
-            $TicketFields | Select-Object | ForEach-Object {
-            $ProcessTicket.Remove($_)
-            $ProcessTicket = $ProcessTicket.Substring($_)
-            }
-            )
-
-$CDRCounter++                       
-
-                      for ($f = 2; $f -lt $TicketForm.Length; $f++)
+                   Write-Host "SMDR Ticket.The length is "  $ProcessTicket.Length
+                   $TicketForm = @(
+                   $TicketFields | Select-Object | ForEach-Object {
+                   $ProcessTicket.Remove($_)
+                   $ProcessTicket = $ProcessTicket.Substring($_)
+                   }
+                   )
+                   $CDRCounter++                       
+                   for ($f = 2; $f -lt $TicketForm.Length; $f++)
                      {
                         Write-Host  $FieldsNames[$f]":" $TicketForm[$f].Trim()
                      }
-
 
                  }
                 
@@ -332,7 +328,6 @@ if ( $LeftToProcess -lt $TicketMessageLength )
                    if ( -Not ($TicketTruncated) )
                      {
                        Write-Host "SMDR Ticket. The length is "  $ProcessTicket.Length
-#                   Write-Host " Data :" $ProcessTicket
                        $CDRCounter++
                        $TicketReady = $false
 
