@@ -24,6 +24,7 @@ $TicketInfo = "03-04"
 $FieldsCounter = 1
 $TicketTruncated = $false
 $Global:CDRCounter = 0
+$Global:TicketForm = @()
 $StartPointer = 0
 
 
@@ -65,7 +66,7 @@ function Check-OXE
 function ProcessOneTicket()
   {
     Write-Host "SMDR Ticket. The length is "  $ProcessTicket.Length
-    $TicketForm = @(
+    $Global:TicketForm = @(
     $TicketFields | Select-Object | ForEach-Object {
     $ProcessTicket.Remove($_)
     $ProcessTicket = $ProcessTicket.Substring($_)
@@ -73,12 +74,24 @@ function ProcessOneTicket()
                    )
 
     $Global:CDRCounter++
+
+# Display full ticket contents and trim spaces
     Write-Host -ForegroundColor Yellow "--- Ticket " $Global:CDRCounter ":"
     for ($f = 2; $f -lt $TicketForm.Length; $f++)
       {
-        Write-Host  $FieldsNames[$f]":" $TicketForm[$f].Trim()
+        $Global:TicketForm[$f] = $Global:TicketForm[$f].Trim()
+        Write-Host  $FieldsNames[$f]":" $Global:TicketForm[$f]
       }
    }
+
+# Write ticket content to a file $CDRFile
+
+    for ($f = 2; $f -lt $Global:TicketForm.Length; $f++)
+      {
+        
+      }
+
+
 
 [INT32]$MsgCounter = 1
 $StartMsg = "00-01"
@@ -240,6 +253,7 @@ switch ($data.Length) {
                $NormalTicket
                  {
                    ProcessOneTicket
+                   $Global:TicketForm -join "`t" | Out-File -Append $CDRFile
                  }
                 
                default
@@ -331,25 +345,9 @@ if ( $LeftToProcess -lt $TicketMessageLength )
                $NormalTicket
                  {
                    if ( -Not ($TicketTruncated) )
-<#
-                     {
-                       Write-Host "SMDR Ticket. The length is "  $ProcessTicket.Length
-
-                       $TicketForm = @(
-                       $TicketFields | Select-Object | ForEach-Object {
-                       $ProcessTicket.Remove($_)
-                       $ProcessTicket = $ProcessTicket.Substring($_)
-                       }
-                   )
-                   $Global:CDRCounter++
-                   Write-Host "--- Ticket " $Global:CDRCounter ":"
-                    for ($f = 2; $f -lt $TicketForm.Length; $f++)
-                     {
-                        Write-Host  $FieldsNames[$f]":" $TicketForm[$f].Trim()
-                     }
-                      } #>
                       {
                        ProcessOneTicket
+                       $Global:TicketForm -join "`t" | Out-File -Append $CDRFile
                       }
                       else 
                         {
