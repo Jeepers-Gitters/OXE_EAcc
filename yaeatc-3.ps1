@@ -12,7 +12,7 @@ $EACCFolder = "C:\Temp\EACC\"
 # Log file
 $LogFile = $EACCFolder + "log.txt"
 # CDR file
-$CDRFile =  $EACCFolder + $OXEMain + "_CDRs.txt"
+$CDRFile =  $EACCFolder + $OXEMain + ".CDRS.txt"
 $TicketFields = @(4,5,30,30,20,10,16,5,20,30,2,1,17,5,10,10,5,5,5,1,16,7,1,2,10,5,40,40,10,10,10,10,1,2,2,2,30,5,10,1,17,30,5,5,5,5,5,6,6)
 $TicketMessageLength = 772
 $FieldsNames = @("TicketLabel", "TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
@@ -248,11 +248,10 @@ switch ($data.Length) {
                $NormalTicket
                  {
                    ProcessOneTicket
-#                $Global:TicketForm[2..($Global:TicketForm.Length)] -join "`t" | Out-File -Append $CDRFile
                  }
                $VoIPTicket
                  {
-                    Write-Host "VoIP Ticket. Not Implemented" 
+                    Write-Host "VoIP Ticket. Not Implemented yet" 
                  }
 
                default
@@ -346,7 +345,6 @@ if ( $LeftToProcess -lt $TicketMessageLength )
                    if ( -Not ($TicketTruncated) )
                       {
                        ProcessOneTicket
-#                       $Global:TicketForm[2..($Global:TicketForm.Length)] -join "`t" | Out-File -Append $CDRFile
                       }
                       else
                         {
