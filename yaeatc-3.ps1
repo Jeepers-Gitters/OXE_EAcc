@@ -76,11 +76,11 @@ function ProcessOneTicket()
 
 # Display full ticket contents and trim spaces
 # Save one line in a file
-    Write-Host -ForegroundColor Yellow -Object "--- Ticket " $Global:CDRCounter ":"
+    Write-Host -ForegroundColor Yellow   "--- Ticket " $Global:CDRCounter ":"
     for ($f = 2; $f -lt $TicketForm.Length; $f++)
       {
         $Global:TicketForm[$f] = $Global:TicketForm[$f].Trim()
-        Write-Host  -Object $FieldsNames[$f]":" $Global:TicketForm[$f]
+        Write-Host $FieldsNames[$f]":" $Global:TicketForm[$f]
       }
     $Global:TicketForm[2..($Global:TicketForm.Length)] -join "`t" | Out-File -Append $CDRFile
    }
