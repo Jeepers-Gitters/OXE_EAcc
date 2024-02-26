@@ -1,4 +1,5 @@
-﻿# version 1.9
+﻿#Requires -Version 5
+# version 1.9
 # add large buffer processing
 Param(
 #    [Parameter(Mandatory)]
@@ -19,16 +20,14 @@ $TicketMark = "01-00"
 $EmptyTicket = "01-00-01-00"
 $NormalTicket = "01-00-02-00"
 $MAOTicket = "01-00-06-00"
-$TcktVersion = "ED5.2"
 $TicketInfo = "03-04"
-$FieldsCounter = 1
 $TicketTruncated = $false
 $Global:CDRCounter = 0
 $Global:TicketForm = @()
 $StartPointer = 0
 
 
-function Check-OXE
+function CheckOXE
   {
     Write-Host  -NoNewline "Host $OXEMain reachable : "
 		if ( Test-Connection $OXEMain -Count 1 -Quiet   )
@@ -76,20 +75,15 @@ function ProcessOneTicket()
     $Global:CDRCounter++
 
 # Display full ticket contents and trim spaces
-    Write-Host -ForegroundColor Yellow "--- Ticket " $Global:CDRCounter ":"
+# Save one line in a file
+    Write-Host -ForegroundColor Yellow -Object "--- Ticket " $Global:CDRCounter ":"
     for ($f = 2; $f -lt $TicketForm.Length; $f++)
       {
         $Global:TicketForm[$f] = $Global:TicketForm[$f].Trim()
-        Write-Host  $FieldsNames[$f]":" $Global:TicketForm[$f]
+        Write-Host  -Object $FieldsNames[$f]":" $Global:TicketForm[$f]
       }
+    $Global:TicketForm[2..($Global:TicketForm.Length)] -join "`t" | Out-File -Append $CDRFile
    }
-
-# Write ticket content to a file $CDRFile
-
-    for ($f = 2; $f -lt $Global:TicketForm.Length; $f++)
-      {
-        
-      }
 
 
 
@@ -131,7 +125,7 @@ $ErrorBytes = 3
 #
 # Check connection and port
 #
-Check-OXE
+CheckOXE
 
 # Init Connection
 $Client = New-Object System.Net.Sockets.TCPClient($OXEMain,$TicketPort)
@@ -142,14 +136,14 @@ $Client.ReceiveTimeout = 31000;
 # Preamble
 #
 #Write-Host "Init Phase"
-$timestamp = (Get-Date).toString("yyyy/MM/dd HH:mm:ss")  | Out-File -FilePath $LogFile 
+(Get-Date).toString("yyyy/MM/dd HH:mm:ss")  | Out-File -FilePath $LogFile
 $Stream.Write($InitMessage,0,$InitMessage.Length)
 $MsgCounter++
 #Start-Sleep -m $PacketDelay
 $i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)
 #$i | Format-Hex | Out-File   -FilePath $LogFile -Append
 $data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes,0, $i)
-$datastring = [System.BitConverter]::ToString($data)  
+$datastring = [System.BitConverter]::ToString($data)
 
 #Write-Host "$MsgCounter. Received $($data.Length) bytes : $datastring"
 
@@ -194,29 +188,29 @@ $MsgCounter++
 $TestKeepAlive = [System.Diagnostics.Stopwatch]::StartNew()
 while(($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0)
 {
-Write-Host -ForegroundColor Yellow "--- Wait for tickets" $Global:CDRCounter "/" $MAOCounter "/" $VOIPCounter 
+Write-Host -ForegroundColor Yellow "--- Wait for tickets" $Global:CDRCounter "/" $MAOCounter "/" $VOIPCounter
 $data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes,0, $i)
 $data | Format-Hex | Out-File   -FilePath $LogFile -Append
 
 switch ($data.Length) {
-    1 
+    1
       {
          Write-Host "Unknown command. Check logs."
          $datastring = [System.BitConverter]::ToString($data)
       }
-    2 
-      {
-        $datastring = [System.BitConverter]::ToString($data) 
-      }
-    3 
-      {
-        $datastring = [System.BitConverter]::ToString($data) 
-      }
-    5 
+    2
       {
         $datastring = [System.BitConverter]::ToString($data)
       }
-    8 
+    3
+      {
+        $datastring = [System.BitConverter]::ToString($data)
+      }
+    5
+      {
+        $datastring = [System.BitConverter]::ToString($data)
+      }
+    8
       {
         $datastring = [System.Text.Encoding]::UTF8.GetString($data)
       }
@@ -224,8 +218,8 @@ switch ($data.Length) {
 # Single accounting ticket is of fixed size 772 bytes
 # Actually less (528) the rest is padded with "00"
 # MAO ticket is variable size but "packet" is still 772 bytes
-# 
-    $TicketMessageLength 
+#
+    $TicketMessageLength
       {
           $ProcessTicket = [System.Text.Encoding]::ASCII.GetString($data)
           if ($TicketReady)
@@ -242,20 +236,20 @@ switch ($data.Length) {
                    {
                    Write-Host "MAO Ticket"
                    $MAOdata = $ProcessTicket.Substring(4, $ProcessTicket.IndexOf(0x0a) -4)  -replace ("=", "`t") -replace ".{1}$" -Split ";"
-                   
+
                    Foreach ($MAOLine in $MAOdata)
                      {
                        $MAOField = $MAOLine.Split("`t")
-                       Write-Host $MAOfield[0] $MAOField[1] ":" $MAOField.Count 
+                       Write-Host $MAOfield[0] $MAOField[1] ":" $MAOField.Count
                      }
-                     $MAOCounter++ 
+                     $MAOCounter++
                  }
                $NormalTicket
                  {
                    ProcessOneTicket
-                   $Global:TicketForm -join "`t" | Out-File -Append $CDRFile
+#                $Global:TicketForm[2..($Global:TicketForm.Length)] -join "`t" | Out-File -Append $CDRFile
                  }
-                
+
                default
                  {
                    Write-Host "Unknown ticket type. Check logs."
@@ -266,7 +260,7 @@ switch ($data.Length) {
 # After ticket is processed modify $datastring so its not command again.
            $TicketReady = $false
            $datastring = "Ticket Info"
-           
+
 }
 
 # Buffer processing
@@ -281,11 +275,11 @@ if ( $TicketTruncated )
        Write-Host "Appended data left from previous packets."
        $TicketTruncated = $false
      }
-$StartPointer = 0    
+$StartPointer = 0
 
 While ( $StartPointer -lt $BufferBuffer.Length )
   {
- $datastring = [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + 1)]) 
+ $datastring = [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + 1)])
 switch ( $datastring )
     {
     $TicketInfo
@@ -313,7 +307,7 @@ $data = $BufferBuffer[$StartPointer..($StartPointer + $TicketMessageLength)]
 # convert this record to ASCII
 $ProcessTicket = [System.Text.Encoding]::ASCII.GetString($data)
 Write-Host "Buffer Pointer:" $StartPointer "/" $BufferBuffer.Length
-$LeftToProcess = $BufferBuffer.Length - $StartPointer 
+$LeftToProcess = $BufferBuffer.Length - $StartPointer
 
 if ( $LeftToProcess -lt $TicketMessageLength )
   {
@@ -322,7 +316,7 @@ if ( $LeftToProcess -lt $TicketMessageLength )
     $TruncPart1 = $data
   }
 # If ($TicketReady)
-  
+
            $TicketFlag = [System.BitConverter]::ToString($ProcessTicket[0..3])
            Write-Host -NoNewline "Ticket Flag is " $TicketFlag " "
            switch ($TicketFlag)
@@ -338,31 +332,31 @@ if ( $LeftToProcess -lt $TicketMessageLength )
                    Foreach ($MAOLine in $MAOdata)
                      {
                        $MAOField = $MAOLine.Split("`t")
-                       Write-Host $MAOfield[0] $MAOField[1] ":" $MAOField.Count 
+                       Write-Host $MAOfield[0] $MAOField[1] ":" $MAOField.Count
                      }
-                   $MAOCounter++ 
+                   $MAOCounter++
                  }
                $NormalTicket
                  {
                    if ( -Not ($TicketTruncated) )
                       {
                        ProcessOneTicket
-                       $Global:TicketForm -join "`t" | Out-File -Append $CDRFile
+#                       $Global:TicketForm[2..($Global:TicketForm.Length)] -join "`t" | Out-File -Append $CDRFile
                       }
-                      else 
+                      else
                         {
                           Write-Host " Waiting for the rest of ticket..."
                         }
                 $TicketReady = $false
                 }
-                
+
                default
                  {
                    Write-Host "Unknown ticket type. Check logs."
                  }
 
              }
-           
+
 $StartPointer = $StartPointer + $TicketMessageLength
 
 
@@ -372,16 +366,17 @@ $StartPointer = $StartPointer + $TicketMessageLength
 # Проверка на длину буфера закрывающая скобка
 #        }
                      $datastring = "Ticket Info"
-        
+
         }
     }
 
-Write-Host -NoNewLine "$MsgCounter. Received $($data.Length) bytes:" 
-# $datastring  
+Write-Host -NoNewLine "$MsgCounter. Received $($data.Length) bytes:"
+# $datastring
 
 switch ($datastring)
     {
-        "03-04" 
+#        "03-04"
+         $ACKMessageStr
           {
             Write-Host "Ticket Ready Command"
             $TicketReady = $true
@@ -393,7 +388,8 @@ switch ($datastring)
             $Stream.Write($TestReply,0,$TestReply.Length)
             $MsgCounter++
           }
-        "TEST_REQ"
+#        "TEST_REQ"
+          $TestRequest
           {
             Write-Host "Test Request String"
             if ($KeepAliveReq)
