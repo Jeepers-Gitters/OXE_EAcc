@@ -20,6 +20,7 @@ $TicketMark = "01-00"
 $EmptyTicket = "01-00-01-00"
 $NormalTicket = "01-00-02-00"
 $MAOTicket = "01-00-06-00"
+$VoIPTicket = "01-00-07-00"
 $TicketInfo = "03-04"
 $TicketTruncated = $false
 $Global:CDRCounter = 0
@@ -248,6 +249,10 @@ switch ($data.Length) {
                  {
                    ProcessOneTicket
 #                $Global:TicketForm[2..($Global:TicketForm.Length)] -join "`t" | Out-File -Append $CDRFile
+                 }
+               $VoIPTicket
+                 {
+                    Write-Host "VoIP Ticket. Not Implemented" 
                  }
 
                default
