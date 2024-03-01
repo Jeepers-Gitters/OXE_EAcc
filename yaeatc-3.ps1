@@ -10,15 +10,18 @@ Param(
 # Working Directory
 $EACCFolder = "C:\Temp\EACC\"
 # Log file
+$LogEnable = $true
 $LogFile = $EACCFolder + "log.txt"
 # CDR file
-$CDRFile =  $EACCFolder + $OXEMain + ".CDRS.txt"
+$CDRFile = $EACCFolder + $OXEMain + ".CDRS"
+$MAOFile = $EACCFolder + $OXEMain + ".MAO"
+$VoIPFile = $EACCFolder + $OXEMain + ".VoIP"
 $TicketFields = @(4,5,30,30,20,10,16,5,20,30,2,1,17,5,10,10,5,5,5,1,16,7,1,2,10,5,40,40,10,10,10,10,1,2,2,2,30,5,10,1,17,30,5,5,5,5,5,6,6)
 $TicketMessageLength = 772
 $FieldsNames = @("TicketLabel", "TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
 $TicketMark = "01-00"
 $EmptyTicket = "01-00-01-00"
-$NormalTicket = "01-00-02-00"
+$CDRTicket = "01-00-02-00"
 $MAOTicket = "01-00-06-00"
 $VoIPTicket = "01-00-07-00"
 $TicketInfo = "03-04"
@@ -137,12 +140,15 @@ $Client.ReceiveTimeout = 31000;
 # Preamble
 #
 #Write-Host "Init Phase"
-(Get-Date).toString("yyyy/MM/dd HH:mm:ss")  | Out-File -FilePath $LogFile
+if ( $LogEnable )
+  {
+    Write-Host "Start logging in $LogFile"
+    (Get-Date).toString("yyyy/MM/dd HH:mm:ss")  | Out-File -FilePath $LogFile
+  }
 $Stream.Write($InitMessage,0,$InitMessage.Length)
 $MsgCounter++
 #Start-Sleep -m $PacketDelay
 $i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)
-#$i | Format-Hex | Out-File   -FilePath $LogFile -Append
 $data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes,0, $i)
 $datastring = [System.BitConverter]::ToString($data)
 
@@ -187,11 +193,15 @@ switch ($data.Length)
 $Stream.Write($StartMessage,0,$StartMessage.Length)
 $MsgCounter++
 $TestKeepAlive = [System.Diagnostics.Stopwatch]::StartNew()
+
 while(($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0)
 {
 Write-Host -ForegroundColor Yellow "--- Wait for tickets" $Global:CDRCounter "/" $MAOCounter "/" $VOIPCounter
 $data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes,0, $i)
-$data | Format-Hex | Out-File   -FilePath $LogFile -Append
+if ( $LogEnable )
+  {
+    $data | Format-Hex | Out-File   -FilePath $LogFile -Append
+  }
 
 switch ($data.Length) {
     1
@@ -241,12 +251,13 @@ switch ($data.Length) {
                    Foreach ($MAOLine in $MAOdata)
                      {
                        $MAOField = $MAOLine.Split("`t")
-                       Write-Host $MAOfield[0] $MAOField[1] ":" $MAOField.Count
+                       Write-Host $MAOfield[0] $MAOField[1]
                      }
                      $MAOCounter++
                  }
-               $NormalTicket
+               $CDRTicket
                  {
+                   [System.Console]::Beep()
                    ProcessOneTicket
                  }
                $VoIPTicket
@@ -340,10 +351,11 @@ if ( $LeftToProcess -lt $TicketMessageLength )
                      }
                    $MAOCounter++
                  }
-               $NormalTicket
+               $CDRTicket
                  {
                    if ( -Not ($TicketTruncated) )
                       {
+                       [System.Console]::Beep()
                        ProcessOneTicket
                       }
                       else
@@ -378,7 +390,6 @@ Write-Host -NoNewLine "$MsgCounter. Received $($data.Length) bytes:"
 
 switch ($datastring)
     {
-#        "03-04"
          $ACKMessageStr
           {
             Write-Host "Ticket Ready Command"
@@ -391,7 +402,6 @@ switch ($datastring)
             $Stream.Write($TestReply,0,$TestReply.Length)
             $MsgCounter++
           }
-#        "TEST_REQ"
           $TestRequest
           {
             Write-Host "Test Request String"
@@ -415,7 +425,10 @@ switch ($datastring)
             if ($datastring.Length -lt 772)
               {
                 Write-Host -ForegroundColor Red "Unknown command :" $datastring.Length  "-"  $datastring "Log written."
-                $datastring | Format-Hex | Out-File   -FilePath $LogFile -Append
+                if ( $LogEnable )
+                  {
+                    $datastring | Format-Hex | Out-File   -FilePath $LogFile -Append
+                  }
               }
             else
               {
