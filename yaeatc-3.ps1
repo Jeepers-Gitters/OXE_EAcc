@@ -10,7 +10,7 @@ Param(
 # Working Directory
 $EACCFolder = "C:\Temp\EACC\"
 # Log file
-$LogEnable = $true
+$LogEnable = $false
 $LogFile = $EACCFolder + "log.txt"
 # CDR file
 $CDRFile = $EACCFolder + $OXEMain + ".CDRS"
@@ -47,8 +47,8 @@ function CheckOXE {
   $Stream = $Client.GetStream()
   $Client.ReceiveTimeout = 31000;
 
-  if ( $Client.Connected )
-  { #        if ( (Test-NetConnection -ComputerName $OXEMain -Port $TicketPort ).TcpTestSucceeded )
+  if ( $Client.Connected ) {
+    #        if ( (Test-NetConnection -ComputerName $OXEMain -Port $TicketPort ).TcpTestSucceeded )
     #
     #       $EAConnected = $true
     Write-Host -ForegroundColor Green "OK`n"
@@ -75,9 +75,11 @@ function ProcessOneTicket() {
   # Display full ticket contents and trim spaces
   # Save one line in a file
   Write-Host -ForegroundColor Yellow   "--- Ticket " $Global:CDRCounter ":"
-  for ($f = 2; $f -lt $TicketForm.Length; $f++) {
-    $Global:TicketForm[$f] = $Global:TicketForm[$f].Trim()
-    Write-Host $FieldsNames[$f]":" $Global:TicketForm[$f]
+  if ( $LogEnable ) {
+    for ($f = 2; $f -lt $TicketForm.Length; $f++) {
+      $Global:TicketForm[$f] = $Global:TicketForm[$f].Trim()
+      Write-Host $FieldsNames[$f]":" $Global:TicketForm[$f]
+    }
   }
   $Global:TicketForm[2..($Global:TicketForm.Length)] -join "`t" | Out-File -Append $CDRFile
 }
