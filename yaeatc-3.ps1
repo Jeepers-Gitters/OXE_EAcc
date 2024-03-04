@@ -2,20 +2,24 @@
 # version 1.9
 # add large buffer processing
 Param(
-  #    [Parameter(Mandatory)]
+#    [Parameter(Mandatory = $true, HelpMessage = "Enter Main role CPU address here", Alias("ADDR","A") )]
   $OXEMain = "192.168.92.52",
-  $TicketPort = 2533
+#    [Parameter(Mandatory = $false, HelpMessage = "Enter netaccess Port here")]
+  $TicketPort = 2533,
+#    [Parameter(Mandatory = $false, Switch)]
+  $LogEnable
 )
 
-# Working Directory
+# Working Directory for testing
 $EACCFolder = "C:\Temp\EACC\"
+
 # Log file
-$LogEnable = $false
+$LogEnable = $true
 $LogFile = $EACCFolder + "log.txt"
 # CDR file
-$CDRFile = $EACCFolder + $OXEMain + ".CDRS"
-$MAOFile = $EACCFolder + $OXEMain + ".MAO"
-$VoIPFile = $EACCFolder + $OXEMain + ".VoIP"
+$CDRFile = $EACCFolder + $OXEMain + ".cdrs"
+$MAOFile = $EACCFolder + $OXEMain + ".mao"
+$VoIPFile = $EACCFolder + $OXEMain + ".voip"
 $TicketFields = @(4, 5, 30, 30, 20, 10, 16, 5, 20, 30, 2, 1, 17, 5, 10, 10, 5, 5, 5, 1, 16, 7, 1, 2, 10, 5, 40, 40, 10, 10, 10, 10, 1, 2, 2, 2, 30, 5, 10, 1, 17, 30, 5, 5, 5, 5, 5, 6, 6)
 $TicketMessageLength = 772
 $FieldsNames = @("TicketLabel", "TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
@@ -229,6 +233,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
               $MAOField = $MAOLine.Split("`t")
               Write-Host $MAOfield[0] $MAOField[1]
             }
+            $MAOdata | Out-File -Append $MAOFile
             $MAOCounter++
           }
           $CDRTicket {
@@ -236,11 +241,12 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
             ProcessOneTicket
           }
           $VoIPTicket {
-            Write-Host "VoIP Ticket. Not Implemented yet" 
+            Write-Host "VoIP Ticket. Not Implemented yet"
+            $ProcessTicket | Out-File -Append $VoIPFile
           }
 
           default {
-            Write-Host "Unknown ticket type. Check logs."
+            Write-Host "Unknown ticket type. Check $LogFile."
           }
 
         }
@@ -303,6 +309,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         switch ($TicketFlag) {
           $EmptyTicket {
             Write-Host "Empty Ticket"
+            $TicketReady = $false
           }
           $MAOTicket {
             Write-Host "MAO Ticket"
@@ -311,7 +318,9 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
               $MAOField = $MAOLine.Split("`t")
               Write-Host $MAOfield[0] $MAOField[1] ":" $MAOField.Count
             }
+            $MAOdata | Out-File -Append $MAOFile
             $MAOCounter++
+            $TicketReady = $false
           }
           $CDRTicket {
             if ( -Not ($TicketTruncated) ) {
@@ -325,7 +334,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
           }
 
           default {
-            Write-Host "Unknown ticket type. Check logs."
+            Write-Host "Unknown ticket type. Check $LogFile."
           }
 
         }
