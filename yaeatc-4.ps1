@@ -1,13 +1,16 @@
 ﻿#Requires -Version 5
 # version 0.9
 # v.3 - add large buffer processing
-# v.4 - remove single message processing and ise universal for shorter code
+# v.4 - remove single message processing and use universal for shorter code
+#     - added TEST_REQ processing in large buffer
+#     - change reply to TEST_REQ handling
 Param(
-#    [Parameter(Mandatory = $true, HelpMessage = "Enter Main role CPU address here", Alias("ADDR","A") )]
+  #    [Parameter(Mandatory = $true, HelpMessage = "Enter Main role CPU address here", Alias("ADDR","A") )]
   $OXEMain = "192.168.92.52",
-#    [Parameter(Mandatory = $false, HelpMessage = "Enter netaccess Port here")]
+  # $OXEMain = "192.168.50.18",
+  #    [Parameter(Mandatory = $false, HelpMessage = "Enter netaccess Port here")]
   $TicketPort = 2533,
-#    [Parameter(Mandatory = $false, Switch)]
+  #    [Parameter(Mandatory = $false, Switch)]
   $LogEnable
 )
 
@@ -16,6 +19,7 @@ $EACCFolder = "C:\Temp\EACC\"
 
 # Log file
 $LogEnable = $true
+$TicketPrintOut = $false
 $LogFile = $EACCFolder + "log.txt"
 # CDR file
 $CDRFile = $EACCFolder + $OXEMain + ".cdrs"
@@ -81,10 +85,12 @@ function ProcessOneTicket() {
 
   # Display full ticket contents and trim spaces
   # Save one line in a file
-  Write-Host -ForegroundColor Yellow   "--- Ticket " $Global:CDRCounter ":"
-  if ( $LogEnable ) {
-    for ($f = 2; $f -lt $TicketForm.Length; $f++) {
-      $Global:TicketForm[$f] = $Global:TicketForm[$f].Trim()
+  for ($f = 2; $f -lt $Global:TicketForm.Length; $f++) {
+    $Global:TicketForm[$f] = $Global:TicketForm[$f].Trim()
+  }
+  if ( $TicketPrintOut ) {
+    Write-Host -ForegroundColor Yellow   "--- Ticket " $Global:CDRCounter
+    for ($f = 2; $f -lt $Global:TicketForm.Length; $f++) {
       Write-Host $FieldsNames[$f]":" $Global:TicketForm[$f]
     }
   }
@@ -221,50 +227,6 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
     #
 
 
-<#
-    $TicketMessageLength {
-      $ProcessTicket = [System.Text.Encoding]::ASCII.GetString($data)
-      if ($TicketReady) {
-        $TicketFlag = [System.BitConverter]::ToString($data[0..3])
-        Write-Host -NoNewline "Ticket Flag is " $TicketFlag " "
-        switch ($TicketFlag) {
-          $EmptyTicket {
-            Write-Host "Empty Ticket"
-          }
-          $MAOTicket {
-            Write-Host "MAO Ticket"
-            $MAOdata = $ProcessTicket.Substring(4, $ProcessTicket.IndexOf(0x0a) - 4) -replace ("=", "`t") -replace ".{1}$" -Split ";"
-
-            Foreach ($MAOLine in $MAOdata) {
-              $MAOField = $MAOLine.Split("`t")
-              Write-Host $MAOfield[0] $MAOField[1]
-            }
-            $MAOdata | Out-File -Append $MAOFile
-            $MAOCounter++
-          }
-          $CDRTicket {
-            [System.Console]::Beep()
-            ProcessOneTicket
-          }
-          $VoIPTicket {
-            Write-Host "VoIP Ticket. Not Implemented yet"
-            $ProcessTicket | Out-File -Append $VoIPFile
-          }
-
-          default {
-            Write-Host "Unknown ticket type. Check $LogFile."
-          }
-
-        }
-      }
-      # After ticket is processed modify $datastring so its not command again.
-      $TicketReady = $false
-      $datastring = "Ticket Info"
-
-    }
-#>
-
-
     # Buffer processing
     #
     default {
@@ -302,7 +264,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         #
         # convert this record to ASCII
         $ProcessTicket = [System.Text.Encoding]::ASCII.GetString($data)
-        Write-Host "Buffer Pointer:" $StartPointer "/" $BufferBuffer.Length
+        Write-Host "Buffer Pointer:" $StartPointer "/" $BufferBuffer.Length "/" ($BufferBuffer.Length - $StartPointer)
         $LeftToProcess = $BufferBuffer.Length - $StartPointer
 
         if ( $LeftToProcess -lt $TicketMessageLength ) {
@@ -320,22 +282,28 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
             $TicketReady = $false
           }
           $BufferTest {
-            Write-Host -ForegroundColor Red "--- Test_REQ received in buffer."
+            Write-Host -ForegroundColor Red "Test_REQ received in buffer."
+            #        Start-Sleep -m $PacketDelay
+            $Stream.Write($TestReply, 0, $TestReply.Length)
+            $MsgCounter++
             Start-Sleep -m $PacketDelay
             $Stream.Write($TestMessage, 0, $TestMessage.Length)
             $MsgCounter++
             Write-Host "$MsgCounter. Reply with TEST_RSP"
+            Write-Host -ForegroundColor Green "--- Runtime" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
             $TicketTruncated = $false
           }
           $MAOTicket {
             Write-Host "MAO Ticket"
             $MAOdata = $ProcessTicket.Substring(4, $ProcessTicket.IndexOf(0x0a) - 4) -replace ("=", "`t") | Out-File -Append $MAOFile
             $MAOdata = $MAOdata -replace ".{1}$" -Split ";"
-            Foreach ($MAOLine in $MAOdata) {
-              $MAOField = $MAOLine.Split("`t")
-              Write-Host $MAOfield[0] $MAOField[1] ":" $MAOField.Count
+            if ( $TicketPrintOut ) {
+              Foreach ($MAOLine in $MAOdata) {
+                $MAOField = $MAOLine.Split("`t")
+                Write-Host $MAOfield[0] $MAOField[1] ":" $MAOField.Count
+              }
             }
-#            $MAOdata | Out-File -Append $MAOFile
+            #            $MAOdata | Out-File -Append $MAOFile
             $MAOCounter++
             $TicketReady = $false
           }
@@ -380,12 +348,15 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
     "00-08" {
       Write-Host "Test Request Command"
       $KeepAliveReq = $true
-      $Stream.Write($TestReply, 0, $TestReply.Length)
-      $MsgCounter++
+      #     $Stream.Write($TestReply, 0, $TestReply.Length)
+      #     $MsgCounter++
     }
     $TestRequest {
       Write-Host "Test Request String"
       if ($KeepAliveReq) {
+        Start-Sleep -m $PacketDelay
+        $Stream.Write($TestReply, 0, $TestReply.Length)
+        $MsgCounter++
         Start-Sleep -m $PacketDelay
         $Stream.Write($TestMessage, 0, $TestMessage.Length)
         $MsgCounter++

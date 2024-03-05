@@ -2,11 +2,11 @@
 # version 1.9
 # add large buffer processing
 Param(
-#    [Parameter(Mandatory = $true, HelpMessage = "Enter Main role CPU address here", Alias("ADDR","A") )]
+  #    [Parameter(Mandatory = $true, HelpMessage = "Enter Main role CPU address here", Alias("ADDR","A") )]
   $OXEMain = "192.168.92.52",
-#    [Parameter(Mandatory = $false, HelpMessage = "Enter netaccess Port here")]
+  #    [Parameter(Mandatory = $false, HelpMessage = "Enter netaccess Port here")]
   $TicketPort = 2533,
-#    [Parameter(Mandatory = $false, Switch)]
+  #    [Parameter(Mandatory = $false, Switch)]
   $LogEnable
 )
 
