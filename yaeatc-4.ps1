@@ -5,7 +5,10 @@
 #     - added TEST_REQ processing in large buffer
 #     - change reply to TEST_REQ handling
 #     - some messages (Write-Host) are commented out to speed up processing
-#     - added VoIP tickets saving
+#     - added VoIP tickets saving (needs correction)
+#     - TEST_REQ handling corrected  (in the middle of buffer)
+
+
 Param(
   #    [Parameter(Mandatory = $true, HelpMessage = "Enter Main role CPU address here", Alias("ADDR","A") )]
   $OXEMain = "192.168.92.52",
@@ -76,7 +79,7 @@ function CheckOXE {
 }
 
 function ProcessOneTicket() {
-#  Write-Host "SMDR Ticket. The length is "  $ProcessTicket.Length
+  #  Write-Host "SMDR Ticket. The length is "  $ProcessTicket.Length
   $Global:TicketForm = @(
     $TicketFields | Select-Object | ForEach-Object {
       $ProcessTicket.Remove($_)
@@ -104,8 +107,8 @@ function ProcessOneTicket() {
 
 [INT32]$MsgCounter = 1
 $StartMsg = "00-01"
-$MainCPU = "50"
-$ThreeBytesAnswer = $StartMsg + "-" + $MainCPU
+$MainRole = "50"
+$ThreeBytesAnswer = $StartMsg + "-" + $MainRole
 $FiveBytesAnswer = $ThreeBytesAnswer + "-" + $TicketInfo
 $ACKMessageStr = "03-04"
 $TestRequest = "TEST_REQ"
@@ -173,7 +176,7 @@ switch ($data.Length) {
       $data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes, 0, $i)
       $datastring = [System.BitConverter]::ToString($data)
       #                Write-Host "$MsgCounter. Received $($data.Length) bytes : $datastring"
-      if ($datastring -eq "50") {
+      if ($datastring -eq $MainRole) {
         Write-Host -ForegroundColor Yellow "Role is Main. Link Established`n"
       }
 
@@ -227,18 +230,18 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
     # Single accounting ticket is of fixed size 772 bytes
     # Actually less (528) the rest is padded with "00"
     # MAO ticket is variable size but "packet" is still 772 bytes
+    # If all types of tickets are send (mao, cdr, voip) then largely they are send inlarge buffers
     #
-
-
     # Buffer processing
+    #
     #
     default {
       $datastring = [System.Text.Encoding]::ASCII.GetString($data)
       $BufferBuffer = $data
-    #  Write-Host "Read buffer:" $BufferBuffer.Length
+      #  Write-Host "Read buffer:" $BufferBuffer.Length
       if ( $TicketTruncated ) {
         $BufferBuffer = $TruncPart1 + $data
-#        Write-Host "Appended data left from previous packets."
+        #        Write-Host "Appended data left from previous packets."
         $TicketTruncated = $false
       }
       $StartPointer = 0
@@ -247,14 +250,14 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         $datastring = [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + 1)])
         switch ( $datastring ) {
           $TicketInfo {
-#            Write-Host "Continue buffer processing ..."
+            #            Write-Host "Continue buffer processing ..."
             $TicketReady = $true
 
             $StartPointer++
             $StartPointer++
           }
           $TicketMark {
- #           Write-Host "Start buffer processing.."
+            #           Write-Host "Start buffer processing.."
           }
           $TestMark {
           }
@@ -269,21 +272,21 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         #
         # convert this record to ASCII
         $ProcessTicket = [System.Text.Encoding]::ASCII.GetString($data)
-#        Write-Host "Buffer Pointer:" $StartPointer "/" ($BufferBuffer.Length - $StartPointer) "/" $BufferBuffer.Length 
+        #        Write-Host "Buffer Pointer:" $StartPointer "/" ($BufferBuffer.Length - $StartPointer) "/" $BufferBuffer.Length 
         $LeftToProcess = $BufferBuffer.Length - $StartPointer
 
         if ( $LeftToProcess -lt $TicketMessageLength ) {
-#          Write-Host "Bytes left :" $LeftToProcess ". Next ticket is truncated."
+          #          Write-Host "Bytes left :" $LeftToProcess ". Next ticket is truncated."
           $TicketTruncated = $true
           $TruncPart1 = $data
         }
         # If ($TicketReady)
 
         $TicketFlag = [System.BitConverter]::ToString($ProcessTicket[0..3])
-       # Write-Host -NoNewline "Ticket Flag is " $TicketFlag " "
+        # Write-Host -NoNewline "Ticket Flag is " $TicketFlag " "
         switch ($TicketFlag) {
           $EmptyTicket {
-#            Write-Host "Empty Ticket"
+            #            Write-Host "Empty Ticket"
             $TicketReady = $false
           }
           $BufferTest {
@@ -297,9 +300,10 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
             Write-Host "$MsgCounter. Reply with TEST_RSP"
             Write-Host -ForegroundColor Green "--- Runtime" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
             $TicketTruncated = $false
+            $StartPointer = $StartPointer + $TestRequest.Length
           }
           $MAOTicket {
-#            Write-Host "MAO Ticket"
+            #            Write-Host "MAO Ticket"
             $MAOdata = $ProcessTicket.Substring(4, $ProcessTicket.IndexOf(0x0a) - 4) -replace ("=", "`t") | Out-File -Append $MAOFile
             $MAOdata = $MAOdata -replace ".{1}$" -Split ";"
             if ( $TicketPrintOut ) {
@@ -313,7 +317,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
             $TicketReady = $false
           }
           $VoIPTicket {
-#            Write-Host "VoIP Ticket"
+            #            Write-Host "VoIP Ticket"
             $ProcessTicket | Out-File -Append $VoIPFile
             $VoIPCounter++
             $TicketReady = $false
@@ -338,7 +342,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         $StartPointer = $StartPointer + $TicketMessageLength
 
 
-      #  Write-Host "Buffer processing.. $Global:CDRCounter tickets processed "
+        #  Write-Host "Buffer processing.. $Global:CDRCounter tickets processed "
       }
       #  Write-Host $StartPointer "vs" $BufferBuffer.Length
       # Проверка на длину буфера закрывающая скобка
