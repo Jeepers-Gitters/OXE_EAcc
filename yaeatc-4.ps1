@@ -34,7 +34,6 @@ $TicketFields = @(4, 5, 30, 30, 20, 10, 16, 5, 20, 30, 2, 1, 17, 5, 10, 10, 5, 5
 $TicketMessageLength = 772
 $FieldsNames = @("TicketLabel", "TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
 $TicketMark = "01-00"
-# when CDR buffer is very long TEST_REQ is sent in Buffer
 $TestMark = "00-08"
 $BufferTest = "00-08-54-45"
 $EmptyTicket = "01-00-01-00"
@@ -117,14 +116,14 @@ $TestRequest = "TEST_REQ"
 [Byte[]]$ACKMessage = 0x03, 0x04
 [Byte[]]$TestReply = 0x00, 0x08
 [Byte[]]$TestMessage = 0x54, 0x45, 0x53, 0x54, 0x5F, 0x52, 0x53, 0x50
-# Ethernat buffer size
+#
+# Ethernet buffer size
 # Info received in this buffer sizes
-#[byte[]]$Rcvbytes = 0..8192 | ForEach-Object {0xFF}
-
+# [byte[]]$Rcvbytes = 0..4096 | ForEach-Object {0xFF}
 #
 # For buffer processing purpose set it to 2048
-[byte[]]$Rcvbytes = 0..4096 | ForEach-Object { 0xFF }
-[Int]$PacketDelay = 500
+[byte[]]$Rcvbytes = 0..8192 | ForEach-Object { 0xFF }
+[Int]$PacketDelay = 250
 $data = $datastring = $NULL
 [Int]$MAOCounter = 0
 [Int]$VOIPCounter = 0
@@ -144,12 +143,10 @@ $ErrorBytes = 3
 # Check connection and port
 #
 CheckOXE
-
 # Init Connection
 $Client = New-Object System.Net.Sockets.TCPClient($OXEMain, $TicketPort)
 $Stream = $Client.GetStream()
 $Client.ReceiveTimeout = 31000;
-
 #
 # Preamble
 #
@@ -238,7 +235,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
     default {
       $datastring = [System.Text.Encoding]::ASCII.GetString($data)
       $BufferBuffer = $data
-      #  Write-Host "Read buffer:" $BufferBuffer.Length
+      Write-Host "Read buffer:" $BufferBuffer.Length
       if ( $TicketTruncated ) {
         $BufferBuffer = $TruncPart1 + $data
         #        Write-Host "Appended data left from previous packets."
@@ -253,8 +250,9 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
             #            Write-Host "Continue buffer processing ..."
             $TicketReady = $true
 
-            $StartPointer++
-            $StartPointer++
+            #$StartPointer++
+            #$StartPointer++
+            $StartPointer = $StartPointer + 2
           }
           $TicketMark {
             #           Write-Host "Start buffer processing.."
@@ -272,7 +270,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         #
         # convert this record to ASCII
         $ProcessTicket = [System.Text.Encoding]::ASCII.GetString($data)
-        #        Write-Host "Buffer Pointer:" $StartPointer "/" ($BufferBuffer.Length - $StartPointer) "/" $BufferBuffer.Length 
+        Write-Host "Buffer Pointer:" $StartPointer "/" ($BufferBuffer.Length - $StartPointer) "/" $BufferBuffer.Length 
         $LeftToProcess = $BufferBuffer.Length - $StartPointer
 
         if ( $LeftToProcess -lt $TicketMessageLength ) {
