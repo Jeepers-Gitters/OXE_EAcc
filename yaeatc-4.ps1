@@ -41,7 +41,9 @@ $EmptyTicket = "01-00-01-00"
 $CDRTicket = "01-00-02-00"
 $MAOTicket = "01-00-06-00"
 $VoIPTicket = "01-00-07-00"
-$TicketInfo = "03-04"
+#$TicketInfo = "03-04"
+$TicketReadyMark = "03-04"
+$TestRequest = "TEST_REQ"
 $TicketTruncated = $false
 $Global:CDRCounter = 0
 $Global:TicketForm = @()
@@ -109,9 +111,8 @@ function ProcessOneTicket() {
 $StartMsg = "00-01"
 $MainRole = "50"
 $ThreeBytesAnswer = $StartMsg + "-" + $MainRole
-$FiveBytesAnswer = $ThreeBytesAnswer + "-" + $TicketInfo
-$ACKMessageStr = "03-04"
-$TestRequest = "TEST_REQ"
+$FiveBytesAnswer = $ThreeBytesAnswer + "-" + $TicketReadyMark
+
 [Byte[]]$InitMessage = 0x00, 0x01, 0x53
 [Byte[]]$StartMessage = 0x00, 0x02, 0x00, 0x00
 [Byte[]]$ACKMessage = 0x03, 0x04
@@ -244,11 +245,10 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         $TicketTruncated = $false
       }
       $StartPointer = 0
-
       While ( $StartPointer -lt $BufferBuffer.Length ) {
         $datastring = [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + 1)])
         switch ( $datastring ) {
-          $TicketInfo {
+          $TicketReadyMark {
 #            Write-Host "Continue buffer processing ..."
             $TicketReady = $true
 
@@ -268,11 +268,11 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         # Load one ticket record into $data variable
         $data = $BufferBuffer[$StartPointer..($StartPointer + $TicketMessageLength)]
         #
-        # convert this record to ASCII
+        # convert this record to ASCII, all 00's would be truncated
         $ProcessTicket = [System.Text.Encoding]::ASCII.GetString($data)
         Write-Host "Buffer Pointer:" $StartPointer "/" ($BufferBuffer.Length - $StartPointer) "/" $BufferBuffer.Length 
-        $LeftToProcess = $BufferBuffer.Length - $StartPointer
 
+        $LeftToProcess = $BufferBuffer.Length - $StartPointer
         if ( ($LeftToProcess -lt $TicketMessageLength) -and ($TicketReady)) {
           Write-Host "Bytes left :" $LeftToProcess ". Next ticket is truncated."
           $TicketTruncated = $true
@@ -333,11 +333,14 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
             if ( -Not ($TicketTruncated) ) {
               [System.Console]::Beep()
               ProcessOneTicket
+              $TicketReady = $false
+#              $StartPointer = $StartPointer + $TicketMessageLength
+
             }
             else {
               Write-Host " Waiting for the rest of ticket..."
             }
-            $TicketReady = $false
+#            $TicketReady = $false
             $StartPointer = $StartPointer + $TicketMessageLength
             $datastring = "Ticket Info"
           }
@@ -365,7 +368,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
   # $datastring
 
   switch ($datastring) {
-    $ACKMessageStr {
+    $TicketReadyMark {
       Write-Host "Ticket Ready Command"
       $TicketReady = $true
     }
@@ -383,7 +386,6 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         $MsgCounter++
         Start-Sleep -m $PacketDelay
         $Stream.Write($TestMessage, 0, $TestMessage.Length)
-        $MsgCounter++
         Write-Host "$MsgCounter. Reply with TEST_RSP"
         Write-Host -ForegroundColor Green "--- Runtime" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
       } 
