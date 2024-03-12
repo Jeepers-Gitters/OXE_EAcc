@@ -2,18 +2,19 @@
 $TicketFields = @(4,5,30,30,20,10,16,5,20,30,2,1,17,5,10,10,5,5,5,1,16,7,1,2,10,5,40,40,10,10,10,10,1,2,2,2,30,5,10,1,17,30,5,5,5,5,5,6,6)
 $EmptyTicket = "01-00-01-00"
 $TicketMark = "01-00"
+$TestMark = "00-08"
 $NormalTicket = "01-00-02-00"
 $MAOTicket = "01-00-06-00"
 $FlagLength ="0..3"
 $TcktVersion = "ED5.2"
 $TicketInfo = "03-04"
-
+$CDRCounter = 0
+$TicketForm = @()
 $StartPointer = 0
 # Last byte of message 772-1
-$TicketMessageLength = 771
+$TicketMessageLength = 772
 
 $TicketReady = $true
-$TicketCounter = 0
 
 # Reading data from file  
 #
@@ -32,7 +33,7 @@ if ( $TicketReady )
 {
   While ( $StartPointer -lt $BufferBuffer.Length )
   {
-$datastring = [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + 1)]) 
+$datastring = [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + 1)])
 Write-Host $datastring | FHX
 switch ( $datastring )
   {
@@ -40,24 +41,31 @@ switch ( $datastring )
       {
         Write-Host "Continue buffer processing ..."
         $TicketReady = $true
-
-        $StartPointer++
-        $StartPointer++
+        $StartPointer = $StartPointer + 2
       }
     $TicketMark
       {
         Write-Host "Start buffer processing.."
-        $StartPointer++
+        
+      }
+    $TestMark {
+        Write-Host -ForegroundColor Green "Test Request Command received."
+        $StartPointer = $StartPointer + 2
+#        [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + 7)])
+        $StartPointer = $StartPointer + 8
+        $TicketReady = $false
       }
     default
       {
-        Write-Host "Wrong data...Check logs."
+        Write-Host -ForegroundColor Red "Wrong data...Check logs. $datastring "
       }
   }
 
 $data = $BufferBuffer[$StartPointer..($StartPointer + $TicketMessageLength)]
+#$data | FHX
 $ProcessTicket = [System.Text.Encoding]::ASCII.GetString($data)
-Write-Host "Buffer Pointer:" $StartPointer "/" $BufferBuffer.Length
+Write-Host "Buffer Pointer:" $StartPointer "/" ($BufferBuffer.Length - $StartPointer) "/" $BufferBuffer.Length 
+
 If ($TicketReady)
           {
 #           $TicketFlag = [System.BitConverter]::ToString($data[0..3])
@@ -68,6 +76,8 @@ If ($TicketReady)
                $EmptyTicket
                  {
                    Write-Host "Empty Ticket"
+                   $TicketReady = $false
+                   $StartPointer = $StartPointer + $TicketMessageLength
                  }
                $MAOTicket
                  {
@@ -78,6 +88,8 @@ If ($TicketReady)
                        $MAOField = $MAOLine.Split("`t")
                        Write-Host $MAOfield[0] $MAOField[1] ":" $MAOField.Count 
                      } 
+                     $TicketReady = $false
+                     $StartPointer = $StartPointer + $TicketMessageLength
                  }
                $NormalTicket
                  {
@@ -88,18 +100,14 @@ If ($TicketReady)
                      $ProcessTicket = $ProcessTicket.Substring($_)
                    }
                    )
-                   $f = 0
-                   Write-Host "--- Ticket " $TicketCounter ":"
+                    Write-Host -ForegroundColor Yellow   "--- Ticket " $CDRCounter
+                    for ($f = 2; $f -lt $TicketForm.Length; $f++) {
+                    Write-Host $FieldsNames[$f]":" $TicketForm[$f]
+                    }
 
-                   ForEach ($Field in $TicketForm)
-                     {
-                       Write-Host  $f $Field ":"$Field.Length
-                       $f++
-                     }
-                  $TicketCounter++
-                  $TicketReady = $false
-
-
+                    $CDRCounter++
+                    $TicketReady = $false
+                    $StartPointer = $StartPointer + $TicketMessageLength
                  }
                 
                default
@@ -109,9 +117,8 @@ If ($TicketReady)
 
              }
            }
-$StartPointer = $StartPointer + $TicketMessageLength
-$StartPointer++
-  Write-Host "Done buffer processing. $TicketCounter tickets processed "
+#$StartPointer = $StartPointer + $TicketMessageLength
+Write-Host "Done buffer processing. $CDRCounter tickets processed "
 }
 }
            
