@@ -8,6 +8,9 @@
 #     - added VoIP tickets saving (needs correction)
 #     - TEST_REQ handling corrected  (in the middle of buffer)
 #     - TEST_REQ handling corrected  (at the end of the buffer)
+#     ? Check for TEST_REQ at the start of bueffer needed when 00 08 sent separately
+#     ? "Unknown ticket type" when StartPoiner is equal BufferBuffer.Length.
+#     - Reply to TEST_REQ with one message $FullTestReply not two consecutive messages
 
 
 Param(
@@ -47,6 +50,7 @@ $TestRequest = "TEST_REQ"
 $TicketTruncated = $false
 $Global:CDRCounter = 0
 $Global:TicketForm = @()
+$BufferBuffer = @()
 $StartPointer = 0
 
 
@@ -118,6 +122,8 @@ $FiveBytesAnswer = $ThreeBytesAnswer + "-" + $TicketReadyMark
 [Byte[]]$ACKMessage = 0x03, 0x04
 [Byte[]]$TestReply = 0x00, 0x08
 [Byte[]]$TestMessage = 0x54, 0x45, 0x53, 0x54, 0x5F, 0x52, 0x53, 0x50
+$FullTestReply = $TestReply + $TestMessage
+
 #
 # Ethernet buffer size
 # Info received in this buffer sizes
@@ -239,25 +245,50 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
       $datastring = [System.Text.Encoding]::ASCII.GetString($data)
       $BufferBuffer = $data
       Write-Host "Read buffer:" $BufferBuffer.Length
+      $StartPointer = 0
+      if ( $KeepAliveReq ) {
+#
+#        [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + ($TestRequest.Length - 1))])
+        Start-Sleep -m $PacketDelay
+<#        $Stream.Write($TestReply, 0, $TestReply.Length)
+        $MsgCounter++
+        Start-Sleep -m $PacketDelay
+        $Stream.Write($TestMessage, 0, $TestMessage.Length)
+#>
+        $Stream.Write($FullTestReply, 0, $FullTestReply.Length)
+
+        Write-Host  $MsgCounter '. Reply with $FullTestReply'
+        Write-Host -ForegroundColor Green "--- Runtime" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
+        $MsgCounter++
+        $KeepAliveReq = $false
+        $StartPointer = ($StartPointer + $TestRequest.Length)
+      }
       if ( $TicketTruncated ) {
         $BufferBuffer = $TruncPart1 + $data
         Write-Host "Appended data left from previous packets."
         $TicketTruncated = $false
       }
-      $StartPointer = 0
+      
       While ( $StartPointer -lt $BufferBuffer.Length ) {
         $datastring = [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + 1)])
         switch ( $datastring ) {
           $TicketReadyMark {
-#            Write-Host "Continue buffer processing ..."
+            #            Write-Host "Continue buffer processing ..."
             $TicketReady = $true
 
             $StartPointer = $StartPointer + 2
           }
           $TicketMark {
-            Write-Host "Start buffer processing.."
+#            Write-Host "Start buffer processing.."
           }
           $TestMark {
+            Write-Host -ForegroundColor Green "Test Request Command received."
+            #            $StartPointer = $StartPointer + 2
+            # Need to test for TEST_REQ string?!
+            $StartPointer = $StartPointer + 10
+            $TicketReady = $false
+            $KeepAliveReq = $true
+            $datastring = $TestRequest
           }
           default {
             Write-Host -ForegroundColor Red "Wrong data...Check logs. $datastring "
@@ -271,8 +302,8 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         # convert this record to ASCII, all 00's would be truncated
         $ProcessTicket = [System.Text.Encoding]::ASCII.GetString($data)
         Write-Host "Buffer Pointer:" $StartPointer "/" ($BufferBuffer.Length - $StartPointer) "/" $BufferBuffer.Length 
-
         $LeftToProcess = $BufferBuffer.Length - $StartPointer
+#        Write-Host "$LeftToProcess left to process"
         if ( ($LeftToProcess -lt $TicketMessageLength) -and ($TicketReady)) {
           Write-Host "Bytes left :" $LeftToProcess ". Next ticket is truncated."
           $TicketTruncated = $true
@@ -281,7 +312,12 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         # If ($TicketReady)
 
         $TicketFlag = [System.BitConverter]::ToString($ProcessTicket[0..3])
-        Write-Host -NoNewline "Ticket Flag is " $TicketFlag " "
+        if ( $TicketFlag ) {
+          Write-Host <# -NoNewline #> "Ticket Flag is " $TicketFlag " "
+        }
+        else {
+          $TicketFlag = "NOP"
+        }
         switch ($TicketFlag) {
           $EmptyTicket {
             Write-Host "Empty Ticket"
@@ -291,7 +327,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
           }
           $BufferTest {
             Write-Host -ForegroundColor Red "Test_REQ received in buffer -1."
-           <#        Start-Sleep -m $PacketDelay
+            <#        Start-Sleep -m $PacketDelay
             $Stream.Write($TestReply, 0, $TestReply.Length)
             $MsgCounter++
             Start-Sleep -m $PacketDelay
@@ -334,24 +370,26 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
               [System.Console]::Beep()
               ProcessOneTicket
               $TicketReady = $false
-#              $StartPointer = $StartPointer + $TicketMessageLength
+              #              $StartPointer = $StartPointer + $TicketMessageLength
 
             }
             else {
               Write-Host " Waiting for the rest of ticket..."
             }
-#            $TicketReady = $false
+            #            $TicketReady = $false
             $StartPointer = $StartPointer + $TicketMessageLength
             $datastring = "Ticket Info"
           }
-
+          "NOP" {
+            Write-Host "Buffer processed.Skipping.."
+          } 
           default {
-            Write-Host "Unknown ticket type. Check $LogFile."
+            Write-Host -ForegroundColor Red "Unknown ticket type. Check $LogFile. $TicketFlag"
           }
 
         }
 
- #       $StartPointer = $StartPointer + $TicketMessageLength
+        #       $StartPointer = $StartPointer + $TicketMessageLength
 
 
         #  Write-Host "Buffer processing.. $Global:CDRCounter tickets processed "
@@ -364,7 +402,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
     }
   }
 
-  Write-Host -NoNewLine "$MsgCounter. Received $($data.Length) bytes:"
+  Write-Host <# -NoNewLine #> "$MsgCounter. Received $($data.Length) bytes:"
   # $datastring
 
   switch ($datastring) {
@@ -375,23 +413,25 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
     $TestMark {
       Write-Host "Test Request Command"
       $KeepAliveReq = $true
-      #     $Stream.Write($TestReply, 0, $TestReply.Length)
-      #     $MsgCounter++
     }
     $TestRequest {
       Write-Host "Test Request String"
       if ($KeepAliveReq) {
         Start-Sleep -m $PacketDelay
+<#
         $Stream.Write($TestReply, 0, $TestReply.Length)
         $MsgCounter++
         Start-Sleep -m $PacketDelay
         $Stream.Write($TestMessage, 0, $TestMessage.Length)
-        Write-Host "$MsgCounter. Reply with TEST_RSP"
+#>
+        $Stream.Write($FullTestReply, 0, $FullTestReply.Length)
+        Write-Host $MsgCounter '. Reply with $FullTestReply'
         Write-Host -ForegroundColor Green "--- Runtime" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
+        $KeepAliveReq = $false
       } 
     }
     "Ticket Info" {
-      Write-Host "Ticket Information"
+      Write-Host "Ticket Information $Global:CDRCounter"
     }
     default {
       if ($datastring.Length -lt 772) {
