@@ -15,8 +15,8 @@
 
 Param(
   #    [Parameter(Mandatory = $true, HelpMessage = "Enter Main role CPU address here", Alias("ADDR","A") )]
-  $OXEMain = "192.168.92.52",
-  # $OXEMain = "192.168.50.18",
+$OXEMain = "192.168.92.52",
+#   $OXEMain = "192.168.50.18",
   #    [Parameter(Mandatory = $false, HelpMessage = "Enter netaccess Port here")]
   $TicketPort = 2533,
   #    [Parameter(Mandatory = $false, Switch)]
