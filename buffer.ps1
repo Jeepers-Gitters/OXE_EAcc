@@ -14,7 +14,7 @@ $StartPointer = 0
 # Last byte of message 772-1
 $TicketMessageLength = 772
 
-$TicketReady = $true
+#$TicketReady = $true
 
 # Reading data from file  
 #
@@ -29,7 +29,7 @@ Write-Host "Read bytes:" $BufferBuffer.Length
 # 
 # Done loading data
 
-if ( $TicketReady ) {
+# if ( $TicketReady ) {
   While ( $StartPointer -lt $BufferBuffer.Length ) {
     $datastring = [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + 1)])
     Write-Host $datastring | FHX
@@ -107,7 +107,7 @@ if ( $TicketReady ) {
     #$StartPointer = $StartPointer + $TicketMessageLength
     Write-Host "Done buffer processing. $CDRCounter tickets processed "
   }
-}
+# }
 
 
 
