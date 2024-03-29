@@ -1,5 +1,5 @@
 ﻿#Requires -Version 5
-# version 0.5
+# version 0.6
 #     - add large buffer processing
 #     - remove single message processing and use universal for shorter code
 #     - added TEST_REQ processing in large buffer
@@ -13,11 +13,13 @@
 #     - Reply to TEST_REQ with one message $FullTestReply not two consecutive messages
 #     ? Check with Stand-by CPU address and with physical main CPU address
 #     ? Send an ACK to every ticket
+#     - added ini file loading
+#     ? iteration counter reset on new buffer
 
 
 Param(
   [Alias ("addr", "main")]
-  [Parameter ( Position = 0, Mandatory = $false, HelpMessage = "Enter Main role CPU address here" )] $OXEMain = "192.168.92.52",
+  [Parameter ( Position = 0, Mandatory = $false, HelpMessage = "Enter Main role CPU address here" )] $OXEMain = "192.168.50.18",
   #$OXEMain = "192.168.50.18",
   
   [Alias ("port")]
@@ -29,12 +31,14 @@ Param(
   [Switch] $LogEnable 
 )
 
+
 # Working Directory for testing
 $EACCFolder = "C:\Temp\EACC\"
-# Log file
+# Ini file
+$EAIniFile = $EACCFolder + "eacc.ini"
 
 # Comment this line out for disabling logging
-$LogEnable = $true
+#$LogEnable = $true
 
 $TicketPrintOut = $false
 $LogFile = $EACCFolder + "log.txt"
@@ -63,6 +67,31 @@ $StartPointer = 0
 $EAIterationCounter = 0 
 $EALeftToProcess = 0 
 
+
+function Get-IniContent ($IniFile) {
+  $EAccini = @{}
+  switch -regex -file $IniFile {
+    “^\[(.+)\]” {
+      # Section
+      $section = $matches[1]
+      $EAccini[$section] = @{}
+      $CommentCount = 0
+    }
+    “^(;.*)$” {
+      # Comment
+      $value = $matches[1]
+      $CommentCount = $CommentCount + 1
+      $name = “Comment” + $CommentCount
+      $EAccini[$section][$name] = $value
+    }
+    “(.+?)\s*=(.*)” {
+      # Key
+      $name, $value = $matches[1..2]
+      $EAccini[$section][$name] = $value
+    }
+  }
+  return $EAccini
+} 
 
 function CheckOXE {
   Write-Host  -NoNewline "Host $OXEMain reachable : "
@@ -160,7 +189,26 @@ $ErrorBytes = 3
 # Role not Main
 $ErrorNotMain = 4
 
-# Write-Host $FieldsNames.Length  "fields in 5.2 version"
+
+
+#
+if ( Test-Path -Path $EAIniFile ) {
+  Write-Host " Loading data from $EAIniFile.. "
+  $EAInitParams = Get-IniContent ($EAIniFile)
+  $OXEMain = $EAInitParams.MainAddress.CPU
+  $TicketPort = $EAInitParams.MainAddress.Port
+  if ( $EAInitParams.MainAddress.Logging ) {
+    $LogEnable = $true
+  }
+}
+else {
+  Write-Host " No ini file found. Using default parameters."
+}
+#Get-Variable EA*
+#
+#
+Write-Host " Host is $OXEMain on port $TicketPort with logging = $LogEnable "
+
 #
 # Check connection and port
 #
@@ -268,6 +316,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
       $BufferBuffer = $data
       Write-Host "Read buffer:" $BufferBuffer.Length
       $StartPointer = 0
+      $EAIterationCounter = 0
       $EALeftToProcess = $BufferBuffer.Length - $StartPointer
 
       if ( $KeepAliveReq ) {
@@ -295,6 +344,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
       }
       
       While ( $StartPointer -lt $BufferBuffer.Length ) {
+        $EAIterationCounter++
         $datastring = [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + 1)])
         switch ( $datastring ) {
           $TicketReadyMark {
@@ -335,18 +385,16 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         $EALeftToProcess = $BufferBuffer.Length - $StartPointer
         Write-Host "$EAIterationCounter Buffer Pointer:" $StartPointer "/" $EALeftToProcess "/" $BufferBuffer.Length 
         #        Write-Host "$EALeftToProcess left to process"
-        $EAIterationCounter++
         if ( ($EALeftToProcess -lt $TicketMessageLength) -and ($TicketReady)) {
           Write-Host "Bytes left :" $EALeftToProcess ". Next ticket is truncated."
           $TicketTruncated = $true
-          Write-Host "Setting TicketTruncated flag to $TicketTruncated "
           $TruncPart1 = $data
         }
         If ($TicketReady) {
 
           $TicketFlag = [System.BitConverter]::ToString($ProcessTicket[0..3])
           if ( $TicketFlag ) {
-            Write-Host <# -NoNewline #> "  Ticket Flag is " $TicketFlag " "
+            #            Write-Host <# -NoNewline #> "  Ticket Flag is " $TicketFlag " "
           }
           else {
             $TicketFlag = "NOP"
@@ -405,7 +453,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
                 $TicketReady = $false
               }
               else {
-                Write-Host " Ticket Truncated fkag is $TicketTruncated Waiting for the rest of ticket..."
+                # !!! check this empty condition
               }
               $StartPointer = $StartPointer + $TicketMessageLength
               $datastring = "Ticket Info"
