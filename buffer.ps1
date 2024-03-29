@@ -1,113 +1,145 @@
-﻿$FieldsNames = @("TicketLabel", "TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
-$TicketFields = @(4, 5, 30, 30, 20, 10, 16, 5, 20, 30, 2, 1, 17, 5, 10, 10, 5, 5, 5, 1, 16, 7, 1, 2, 10, 5, 40, 40, 10, 10, 10, 10, 1, 2, 2, 2, 30, 5, 10, 1, 17, 30, 5, 5, 5, 5, 5, 6, 6)
-$EmptyTicket = "01-00-01-00"
-$TicketMark = "01-00"
-$TestMark = "00-08"
-$NormalTicket = "01-00-02-00"
-$MAOTicket = "01-00-06-00"
-$FlagLength = "0..3"
-$TcktVersion = "ED5.2"
-$TicketInfo = "03-04"
-$CDRCounter = 0
-$TicketForm = @()
-$StartPointer = 0
+﻿$EAFieldsNames = @("TicketLabel", "TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
+$EATicketFields = @(4, 5, 30, 30, 20, 10, 16, 5, 20, 30, 2, 1, 17, 5, 10, 10, 5, 5, 5, 1, 16, 7, 1, 2, 10, 5, 40, 40, 10, 10, 10, 10, 1, 2, 2, 2, 30, 5, 10, 1, 17, 30, 5, 5, 5, 5, 5, 6, 6)
+$EAEmptyTicket = "01-00-01-00"
+$EATicketMark = "01-00"
+$EATestMark = "00-08"
+$EANormalTicket = "01-00-02-00"
+$EAMAOTicket = "01-00-06-00"
+$EAFlagLength = "0..3"
+$EATcktVersion = "ED5.2"
+$EANewTicketAvailable = "03-04"
+$EACDRCounter = 0
+$EATicketForm = @()
+$EAStartPointer = 0
 # Last byte of message 772-1
-$TicketMessageLength = 772
+$EATicketMessageLength = 772
+$EATicketTruncated = $false
+$EAKeepAliveReq = $false
+$EAIteration = 0
 
 #$TicketReady = $true
 
 # Reading data from file  
 #
-$FilePath = "C:\Temp\EACC\"
-$BufferFile = "binary.txt"
-$FullPath = $FilePath + $BufferFile
-Set-Location $FilePath
+$EAFilePath = "C:\Temp\EACC\"
+$EABufferFile = "binary.txt"
+$EAFullPath = $EAFilePath + $EABufferFile
+Set-Location $EAFilePath
 Write-Host "Changing working folder to" (Get-Location).Path
-Write-Host "Reading buffer from" (Get-Item $BufferFile).FullName 
-$BufferBuffer = Get-Content $FullPath -Encoding Byte
-Write-Host "Read bytes:" $BufferBuffer.Length
+Write-Host "Reading buffer from" (Get-Item $EABufferFile).FullName 
+$EABufferBuffer = Get-Content $EAFullPath -Encoding Byte
+Write-Host "Read bytes:" $EABufferBuffer.Length
+$EALeftToProcess = $EABufferBuffer.Length
 # 
 # Done loading data
-
-# if ( $TicketReady ) {
-  While ( $StartPointer -lt $BufferBuffer.Length ) {
-    $datastring = [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + 1)])
-    Write-Host $datastring | FHX
-    switch ( $datastring ) {
-      $TicketInfo {
-        Write-Host "Continue buffer processing ..."
-        $TicketReady = $true
-        $StartPointer = $StartPointer + 2
+#
+# Buffer processing
+#
+#
+  while ( ( $EAStartPointer -lt $EABufferBuffer.Length ) -and !($EATicketTruncated)) {
+    $EAdatastring = [System.BitConverter]::ToString($EABufferBuffer[$EAStartPointer..($EAStartPointer + 1)])
+    Write-Host $EAdatastring | FHX
+    $EAIteration++
+    switch ( $EAdatastring ) {
+      $EANewTicketAvailable {
+        Write-Host "New ticket info follows ..."
+        $EATicketReady = $true
+        $EAStartPointer = $EAStartPointer + 2
       }
-      $TicketMark {
-        Write-Host "Start buffer processing.."
-        
-      }
-      $TestMark {
+      $EATicketMark {
+        Write-Host "Getting Ticket Info.."
+        $EAStartPointer = $EAStartPointer + 2
+       }
+      $EATestMark {
         Write-Host -ForegroundColor Green "Test Request Command received."
-        # $StartPointer = $StartPointer + 2
-        #        [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + 7)])
-        $StartPointer = $StartPointer + 10
-        $TicketReady = $false
+        $EATicketReady = $false
+        $EAKeepAliveReq = $true
+        $EAStartPointer = $EAStartPointer + 2
       }
       default {
-        Write-Host -ForegroundColor Red "Wrong data...Check logs. $datastring "
+        Write-Host -ForegroundColor Red "Wrong data...Check logs. $EAdatastring Exiting. "
+        exit
       }
     }
 
-    $data = $BufferBuffer[$StartPointer..($StartPointer + $TicketMessageLength)]
-    #$data | FHX
-    $ProcessTicket = [System.Text.Encoding]::ASCII.GetString($data)
-    Write-Host "Buffer Pointer:" $StartPointer "/" ($BufferBuffer.Length - $StartPointer) "/" $BufferBuffer.Length 
-
-    If ($TicketReady) {
-      #           $TicketFlag = [System.BitConverter]::ToString($data[0..3])
-      $TicketFlag = [System.BitConverter]::ToString($ProcessTicket[0..3])
-      Write-Host -NoNewline "Ticket Flag is " $TicketFlag " "
-      switch ($TicketFlag) {
-        $EmptyTicket {
+    $EAdata = $EABufferBuffer[$EAStartPointer..($EAStartPointer + $EATicketMessageLength)]
+    #$EAdata | FHX
+# !!! Works for ASCII encoding - CDR and MAO tickets, VoIP tickets are binary
+    $EAProcessTicket = [System.Text.Encoding]::ASCII.GetString($EAdata)
+# !!! Disable as it looks unnecessary 
+#    $EALeftToProcess = $EABufferBuffer.Length - $EAStartPointer
+    Write-Host "$EAIteration Buffer Pointer:" $EAStartPointer "/" $EALeftToProcess "/" $EABufferBuffer.Length 
+<#
+     if ( $EALeftToProcess -lt $EATicketMessageLength ) {
+        Write-Host "Bytes left :" $EALeftToProcess ". Next ticket is truncated."
+        $EATicketTruncated = $true
+        $EATruncPart1 = $EAdata
+        }
+#>
+    If ($EATicketReady) {
+      $EATicketFlag = [System.BitConverter]::ToString($EAProcessTicket[0..3])
+      Write-Host -NoNewline "Ticket Flag is " $EATicketFlag " "
+      switch ($EATicketFlag) {
+        $EAEmptyTicket {
           Write-Host "Empty Ticket"
-          $TicketReady = $false
-          $StartPointer = $StartPointer + $TicketMessageLength
+          $EATicketReady = $false
+          $EAStartPointer = $EAStartPointer + $EATicketMessageLength
         }
-        $MAOTicket {
+        $EAMAOTicket {
           Write-Host "MAO Ticket"
-          $MAOdata = $ProcessTicket.Substring(4, $ProcessTicket.IndexOf(0x0a) - 4) -replace ("=", "`t") -replace ".{1}$" -Split ";"
-          Foreach ($MAOLine in $MAOdata) {
-            $MAOField = $MAOLine.Split("`t")
-            Write-Host $MAOfield[0] $MAOField[1] ":" $MAOField.Count 
+          $EAMAOdata = $EAProcessTicket.Substring(4, $EAProcessTicket.IndexOf(0x0a) - 4) -replace ("=", "`t") -replace ".{1}$" -Split ";"
+          Foreach ($EAMAOLine in $EAMAOdata) {
+            $EAMAOField = $EAMAOLine.Split("`t")
+            Write-Host $EAMAOfield[0] $EAMAOField[1] ":" $EAMAOField.Count 
           } 
-          $TicketReady = $false
-          $StartPointer = $StartPointer + $TicketMessageLength
+          $EATicketReady = $false
+          $EAStartPointer = $EAStartPointer + $EATicketMessageLength
         }
-        $NormalTicket {
+        $EANormalTicket {
           Write-Host "SMDR Ticket"
-          $TicketForm = @(
-            $TicketFields | Select-Object | ForEach-Object {
-              $ProcessTicket.Remove($_)
-              $ProcessTicket = $ProcessTicket.Substring($_)
+          $EATicketForm = @(
+            $EATicketFields | Select-Object | ForEach-Object {
+              $EAProcessTicket.Remove($_)
+              $EAProcessTicket = $EAProcessTicket.Substring($_)
             }
           )
-          Write-Host -ForegroundColor Yellow   "--- Ticket " $CDRCounter
-          for ($f = 2; $f -lt $TicketForm.Length; $f++) {
-            Write-Host $FieldsNames[$f]":" $TicketForm[$f]
+          Write-Host -ForegroundColor Yellow   "--- Ticket " $EACDRCounter
+<#          
+          for ($EAf = 2; $EAf -lt $EATicketForm.Length; $EAf++) {
+            Write-Host $EAFieldsNames[$EAf]":" $EATicketForm[$EAf]
           }
+#>
+          $EACDRCounter++
+          $EATicketReady = $false
+          $EAStartPointer = $EAStartPointer + $EATicketMessageLength
 
-          $CDRCounter++
-          $TicketReady = $false
-          $StartPointer = $StartPointer + $TicketMessageLength
+
         }
                 
         default {
           Write-Host "Unknown ticket type. Check logs."
         }
 
+
       }
+
+          $EALeftToProcess = $EABufferBuffer.Length - $EAStartPointer
+          Write-Host "Buffer Pointer:" $EAStartPointer "/" $EALeftToProcess "/" $EABufferBuffer.Length 
+          if ( $EALeftToProcess -lt $EATicketMessageLength ) {
+            Write-Host "$EAIteration Bytes left :" $EALeftToProcess ". Next ticket is truncated."
+            $EATicketTruncated = $true
+#            $EATruncPart1 = $EABufferBuffer[$EAStartPointer..$EALeftToProcess]
+          }
     }
-    #$StartPointer = $StartPointer + $TicketMessageLength
-    Write-Host "Done buffer processing. $CDRCounter tickets processed "
   }
-# }
+    $EATruncPart1 = $EABufferBuffer[$EAStartPointer..$EABufferBuffer.Length] 
+    Write-Host "Done buffer processing. $EACDRCounter tickets processed "
+    if ( $EATicketTruncated ) {
+      Write-Host "Need more data from the next buffer."
+      }
+
+# Need this for debugging
+#      Get-Variable EA*
 
 
 

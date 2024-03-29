@@ -11,11 +11,13 @@
 #     ? Check for TEST_REQ at the start of bueffer needed when 00 08 sent separately
 #     - "Unknown ticket type" when StartPoiner is equal BufferBuffer.Length.
 #     - Reply to TEST_REQ with one message $FullTestReply not two consecutive messages
+#     ? Check with Stand-by CPU address and with physical main CPU address
+#     ? Send an ACK to every ticket
 
 
 Param(
   [Alias ("addr", "main")]
-  [Parameter ( Position = 0, Mandatory = $false, HelpMessage = "Enter Main role CPU address here" )] $OXEMain = "192.168.50.18",
+  [Parameter ( Position = 0, Mandatory = $false, HelpMessage = "Enter Main role CPU address here" )] $OXEMain = "192.168.92.52",
   #$OXEMain = "192.168.50.18",
   
   [Alias ("port")]
@@ -58,6 +60,8 @@ $Global:CDRCounter = 0
 $Global:TicketForm = @()
 $BufferBuffer = @()
 $StartPointer = 0
+$EAIterationCounter = 0 
+$EALeftToProcess = 0 
 
 
 function CheckOXE {
@@ -153,6 +157,8 @@ $ErrorHost = 1
 $ErrorPort = 2
 # Wrong answer in Preamble
 $ErrorBytes = 3
+# Role not Main
+$ErrorNotMain = 4
 
 # Write-Host $FieldsNames.Length  "fields in 5.2 version"
 #
@@ -176,6 +182,7 @@ $MsgCounter++
 #Start-Sleep -m $PacketDelay
 $i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)
 $data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes, 0, $i)
+$data | Format-Hex | Out-File   -FilePath $LogFile -Append
 $datastring = [System.BitConverter]::ToString($data)
 
 #Write-Host "$MsgCounter. Received $($data.Length) bytes : $datastring"
@@ -187,10 +194,18 @@ switch ($data.Length) {
       Write-Host -ForegroundColor Yellow "Start sequence reply received, waiting for role..."
       $i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)
       $data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes, 0, $i)
+      $data | Format-Hex | Out-File   -FilePath $LogFile -Append
       $datastring = [System.BitConverter]::ToString($data)
       #                Write-Host "$MsgCounter. Received $($data.Length) bytes : $datastring"
       if ($datastring -eq $MainRole) {
         Write-Host -ForegroundColor Yellow "Role is Main. Link Established`n"
+      }
+      else {
+        Write-Host -ForegroundColor Red "Role is not Main  `n"
+        Write-Host "Disconnect." 
+        $Stream.Flush()
+        $Client.Close()
+        exit $ErrorNotMain
       }
 
     }
@@ -253,6 +268,8 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
       $BufferBuffer = $data
       Write-Host "Read buffer:" $BufferBuffer.Length
       $StartPointer = 0
+      $EALeftToProcess = $BufferBuffer.Length - $StartPointer
+
       if ( $KeepAliveReq ) {
         #
         #        [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + ($TestRequest.Length - 1))])
@@ -281,13 +298,12 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         $datastring = [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + 1)])
         switch ( $datastring ) {
           $TicketReadyMark {
-            #            Write-Host "Continue buffer processing ..."
+            Write-Host "Continue buffer processing ..."
             $TicketReady = $true
-
             $StartPointer = $StartPointer + 2
           }
           $TicketMark {
-            #            Write-Host "Start buffer processing.."
+            Write-Host " Start buffer processing.."
           }
           $TestMark {
             Write-Host -ForegroundColor Cyan "Test Request Command received."
@@ -316,11 +332,11 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         #
         # convert this record to ASCII, all 00's would be truncated
         $ProcessTicket = [System.Text.Encoding]::ASCII.GetString($data)
-        Write-Host "Buffer Pointer:" $StartPointer "/" ($BufferBuffer.Length - $StartPointer) "/" $BufferBuffer.Length 
-        $LeftToProcess = $BufferBuffer.Length - $StartPointer
-        #        Write-Host "$LeftToProcess left to process"
-        if ( ($LeftToProcess -lt $TicketMessageLength) -and ($TicketReady)) {
-          Write-Host "Bytes left :" $LeftToProcess ". Next ticket is truncated."
+        $EALeftToProcess = $BufferBuffer.Length - $StartPointer
+        Write-Host "$EAIterationCounter Buffer Pointer:" $StartPointer "/" $EALeftToProcess "/" $BufferBuffer.Length 
+        #        Write-Host "$EALeftToProcess left to process"
+        if ( ($EALeftToProcess -lt $TicketMessageLength) -and ($TicketReady)) {
+          Write-Host "Bytes left :" $EALeftToProcess ". Next ticket is truncated."
           $TicketTruncated = $true
           $TruncPart1 = $data
         }
@@ -385,18 +401,15 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
                 [System.Console]::Beep()
                 ProcessOneTicket
                 $TicketReady = $false
-                #              $StartPointer = $StartPointer + $TicketMessageLength
-
               }
               else {
                 Write-Host " Waiting for the rest of ticket..."
               }
-              #            $TicketReady = $false
               $StartPointer = $StartPointer + $TicketMessageLength
               $datastring = "Ticket Info"
             }
             "NOP" {
-              Write-Host "Buffer processed.Skipping.."
+              Write-Host "Buffer processed. Skipping.."
             } 
             default {
               Write-Host -ForegroundColor Red "Unknown ticket type. Check $LogFile. $TicketFlag"
