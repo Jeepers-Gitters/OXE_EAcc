@@ -335,9 +335,11 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         $EALeftToProcess = $BufferBuffer.Length - $StartPointer
         Write-Host "$EAIterationCounter Buffer Pointer:" $StartPointer "/" $EALeftToProcess "/" $BufferBuffer.Length 
         #        Write-Host "$EALeftToProcess left to process"
+        $EAIterationCounter++
         if ( ($EALeftToProcess -lt $TicketMessageLength) -and ($TicketReady)) {
           Write-Host "Bytes left :" $EALeftToProcess ". Next ticket is truncated."
           $TicketTruncated = $true
+          Write-Host "Setting TicketTruncated flag to $TicketTruncated "
           $TruncPart1 = $data
         }
         If ($TicketReady) {
@@ -351,7 +353,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
           }
           switch ($TicketFlag) {
             $EmptyTicket {
-              Write-Host "Empty Ticket"
+              Write-Host " Empty Ticket"
               $TicketReady = $false
               $StartPointer = $StartPointer + $TicketMessageLength
               $datastring = "Ticket Info"
@@ -373,7 +375,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
               $datastring = $TestRequest
             }
             $MAOTicket {
-              #            Write-Host "MAO Ticket"
+              #            Write-Host " MAO Ticket"
               $MAOdata = $ProcessTicket.Substring(4, $ProcessTicket.IndexOf(0x0a) - 4) -replace ("=", "`t") | Out-File -Append $MAOFile
               $MAOdata = $MAOdata -replace ".{1}$" -Split ";"
               if ( $TicketPrintOut ) {
@@ -388,8 +390,8 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
               $StartPointer = $StartPointer + $TicketMessageLength
               $datastring = "Ticket Info"
             }
-            $VoIPTicket {
-              #            Write-Host "VoIP Ticket"
+            $VoIPTicket { 
+              #            Write-Host " VoIP Ticket"
               $ProcessTicket | Out-File -Append $VoIPFile
               $VoIPCounter++
               $TicketReady = $false
@@ -403,7 +405,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
                 $TicketReady = $false
               }
               else {
-                Write-Host " Waiting for the rest of ticket..."
+                Write-Host " Ticket Truncated fkag is $TicketTruncated Waiting for the rest of ticket..."
               }
               $StartPointer = $StartPointer + $TicketMessageLength
               $datastring = "Ticket Info"
@@ -460,7 +462,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
       } 
     }
     "Ticket Info" {
-      Write-Host "Ticket Information: $Global:CDRCounter, $MAOCounter, $VOIPCounter"
+      Write-Host -Foreground Magenta "Ticket Information: $Global:CDRCounter, $MAOCounter, $VOIPCounter"
     }
     default {
       if (($datastring.Length -lt 772) -and ($datastring.Length -gt 0)) {
