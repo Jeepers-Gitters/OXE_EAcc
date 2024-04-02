@@ -17,16 +17,22 @@
 #     ? iteration counter reset on new buffer
 #     ? add return values to CheckOXE function
 #     - change EAMessageCounter to received buffers
-
+<#
+.SYNOPSIS
+  Receives CDR tickets on Ethernet from Alcatel-Lucent OmniPCX Enterprise
+.DESCRIPTION
+  This script uses ALU netaccess protocol for receiving real-time tickets on Ethernet. All received tickets without
+  any processing are written to appropriate files.
+#>
 
 Param(
   [Alias ("addr", "main")]
-  [Parameter ( Position = 0, Mandatory = $false, HelpMessage = "Enter Main role CPU address here" )] $OXEMain = "192.168.50.18",
-  #$OXEMain = "192.168.50.18",
+  [Parameter ( Position = 0, Mandatory = $false, HelpMessage = "Enter Main role CPU address here" )] $EAOXEMain = "192.168.50.18",
+  #$EAOXEMain = "192.168.50.18",
   
   [Alias ("port")]
   [Parameter (Position = 1, Mandatory = $false, HelpMessage = "Enter netaccess Port here")]
-  $TicketPort = 2533,
+  $EATicketPort = 2533,
   
   [Alias ("log")]
   [Parameter (Mandatory = $false )]
@@ -38,11 +44,11 @@ Param(
 $EACCFolder = "C:\Temp\EACC\"
 # Ini file
 $EAIniFile = $EACCFolder + "eacc.ini"
-$LogFile = $EACCFolder + "log.txt"
+$EALogFile = $EACCFolder + "log.txt"
 # CDR file
-$CDRFile = $EACCFolder + $OXEMain + ".cdrs"
-$MAOFile = $EACCFolder + $OXEMain + ".mao"
-$VoIPFile = $EACCFolder + $OXEMain + ".voip"
+$CDRFile = $EACCFolder + $EAOXEMain + ".cdrs"
+$MAOFile = $EACCFolder + $EAOXEMain + ".mao"
+$VoIPFile = $EACCFolder + $EAOXEMain + ".voip"
 $TicketFields = @(4, 5, 30, 30, 20, 10, 16, 5, 20, 30, 2, 1, 17, 5, 10, 10, 5, 5, 5, 1, 16, 7, 1, 2, 10, 5, 40, 40, 10, 10, 10, 10, 1, 2, 2, 2, 30, 5, 10, 1, 17, 30, 5, 5, 5, 5, 5, 6, 6)
 $TicketMessageLength = 772
 $FieldsNames = @("TicketLabel", "TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
@@ -91,8 +97,8 @@ function Get-IniContent ($IniFile) {
 } 
 
 function CheckOXE {
-  Write-Host  -NoNewline "Host $OXEMain reachable : "
-		if ( Test-Connection $OXEMain -Count 1 -Quiet   ) {
+  Write-Host  -NoNewline "Host $EAOXEMain reachable : "
+		if ( Test-Connection $EAOXEMain -Count 1 -Quiet   ) {
 				Write-Host -ForegroundColor Green "OK"
   }
   else {
@@ -100,21 +106,21 @@ function CheckOXE {
     Write-Host "Exiting. Check network connection."
     exit $ErrorHost
   }
-  # (Test-NetConnection $OXEMain  -Port $TicketPort).TcpTestSucceeded
-  Write-Host -NoNewline "Connection on $OXEMain" port "$TicketPort : "
-  $Client = New-Object System.Net.Sockets.TCPClient($OXEMain, $TicketPort)
+  # (Test-NetConnection $EAOXEMain  -Port $EATicketPort).TcpTestSucceeded
+  Write-Host -NoNewline "Connection on $EAOXEMain" port "$EATicketPort : "
+  $Client = New-Object System.Net.Sockets.TCPClient($EAOXEMain, $EATicketPort)
   $Stream = $Client.GetStream()
   $Client.ReceiveTimeout = 31000;
 
   if ( $Client.Connected ) {
-    #        if ( (Test-NetConnection -ComputerName $OXEMain -Port $TicketPort ).TcpTestSucceeded )
+    #        if ( (Test-NetConnection -ComputerName $EAOXEMain -Port $EATicketPort ).TcpTestSucceeded )
     #
     #       $EAConnected = $true
     Write-Host -ForegroundColor Green "OK`n"
   }
   else {
     Write-Host -ForegroundColor Red "NOK"
-    Write-Host "Exiting. Ethernet Account port closed on $OXEMain."
+    Write-Host "Exiting. Ethernet Account port closed on $EAOXEMain."
     exit $ErrorPort
   }
   $Client.Close()
@@ -129,7 +135,7 @@ function ProcessOneTicket() {
     }
   )
   $Global:CDRCounter++
-  "Ticket Proccessed $Global:CDRCounter, $MAOCounter, $VOIPCounter" | Out-File   -FilePath $LogFile -Append
+  "Ticket Proccessed $Global:CDRCounter, $MAOCounter, $VOIPCounter" | Out-File   -FilePath $EALogFile -Append
 
 
   # Display full ticket contents and trim spaces
@@ -191,8 +197,9 @@ $ErrorNotMain = 4
 if ( Test-Path -Path $EAIniFile ) {
   Write-Host " Loading data from $EAIniFile.. "
   $EAInitParams = Get-IniContent ($EAIniFile)
-  $OXEMain = $EAInitParams.MainAddress.CPU
-  $TicketPort = $EAInitParams.MainAddress.Port
+  $EAOXEMain = $EAInitParams.MainAddress.CPU
+  $EATicketPort = $EAInitParams.MainAddress.Port
+  $EACCFolder = $EAInitParams.MainAddress.WorkingDir
   if ( $EAInitParams.MainAddress.Logging ) {
     $LogEnable = $true
   }
@@ -202,14 +209,14 @@ else {
 }
 #
 #
-Write-Host " Host is $OXEMain on port $TicketPort with logging = $LogEnable "
+Write-Host " Host is $EAOXEMain on port $EATicketPort with logging = $LogEnable in $EACCFolder"
 
 #
 # Check connection and port
 #
 CheckOXE
 # Init Connection
-$Client = New-Object System.Net.Sockets.TCPClient($OXEMain, $TicketPort)
+$Client = New-Object System.Net.Sockets.TCPClient($EAOXEMain, $EATicketPort)
 $Stream = $Client.GetStream()
 $Client.ReceiveTimeout = 31000;
 #
@@ -217,15 +224,15 @@ $Client.ReceiveTimeout = 31000;
 #
 #Write-Host "Init Phase"
 if ( $LogEnable ) {
-  #  Write-Host "Start logging in $LogFile"
-    (Get-Date).toString("yyyy/MM/dd HH:mm:ss")  | Out-File -FilePath $LogFile
+  #  Write-Host "Start logging in $EALogFile"
+    (Get-Date).toString("yyyy/MM/dd HH:mm:ss")  | Out-File -FilePath $EALogFile
 }
 $Stream.Write($InitMessage, 0, $InitMessage.Length)
 $EAMessageCounter++
 #Start-Sleep -m $PacketDelay
 $i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)
 $data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes, 0, $i)
-$data | Format-Hex | Out-File   -FilePath $LogFile -Append
+$data | Format-Hex | Out-File   -FilePath $EALogFile -Append
 $datastring = [System.BitConverter]::ToString($data)
 
 #Write-Host "$EAMessageCounter. Received $($data.Length) bytes : $datastring"
@@ -237,7 +244,7 @@ switch ($data.Length) {
       Write-Host -ForegroundColor Yellow "Start sequence reply received, waiting for role..."
       $i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)
       $data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes, 0, $i)
-      $data | Format-Hex | Out-File   -FilePath $LogFile -Append
+      $data | Format-Hex | Out-File   -FilePath $EALogFile -Append
       $datastring = [System.BitConverter]::ToString($data)
       if ($datastring -eq $MainRole) {
         Write-Host -ForegroundColor Yellow "Role is Main. Link Established`n"
@@ -278,7 +285,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
   $data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes, 0, $i)
 
   if ( $LogEnable ) {
-    $data | Format-Hex | Out-File   -FilePath $LogFile -Append
+    $data | Format-Hex | Out-File   -FilePath $EALogFile -Append
   }
 
   switch ($data.Length) {
@@ -454,7 +461,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
               Write-Host "Buffer processed. Skipping.."
             } 
             default {
-              Write-Host -ForegroundColor Red "Unknown ticket type. Check $LogFile. $TicketFlag"
+              Write-Host -ForegroundColor Red "Unknown ticket type. Check $EALogFile. $TicketFlag"
             }
 
           }
@@ -508,7 +515,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
       if (($datastring.Length -lt 772) -and ($datastring.Length -gt 0)) {
         Write-Host -ForegroundColor Red "Unknown command :" $datastring.Length  "-"  $datastring "Log written."
         if ( $LogEnable ) {
-          $datastring | Format-Hex | Out-File   -FilePath $LogFile -Append
+          $datastring | Format-Hex | Out-File   -FilePath $EALogFile -Append
         }
       }
       else {
@@ -522,7 +529,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
 #
 # Main body
 #
-if ( -Not (Get-NetTCPConnection -State Established -RemotePort $TicketPort -ErrorAction SilentlyContinue) ) {
+if ( -Not (Get-NetTCPConnection -State Established -RemotePort $EATicketPort -ErrorAction SilentlyContinue) ) {
   Write-Host "Connection closed from server."
 }
 Write-Host "Disconnect." "Uptime: " $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss') "Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter"
