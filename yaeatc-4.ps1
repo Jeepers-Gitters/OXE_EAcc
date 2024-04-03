@@ -39,7 +39,6 @@ Param(
   [Switch] $LogEnable 
 )
 
-
 # Working Directory for testing
 $EACCFolder = "C:\Temp\EACC\"
 # Ini file
@@ -60,7 +59,8 @@ $CDRTicket = "01-00-02-00"
 $MAOTicket = "01-00-06-00"
 $VoIPTicket = "01-00-07-00"
 $TicketReadyMark = "03-04"
-$TestRequest = "TEST_REQ"
+$EATestRequest = "TEST_REQ"
+$EATestReply = "TEST_REP"
 $TicketTruncated = $false
 $Global:CDRCounter = 0
 $Global:TicketForm = @()
@@ -69,8 +69,23 @@ $StartPointer = 0
 $EAIterationCounter = 0 
 $EALeftToProcess = 0 
 $TicketPrintOut = $false
+[INT32]$EAMessageCounter = 0
+$StartMsg = "00-01"
+$MainRole = "50"
+$ThreeBytesAnswer = $StartMsg + "-" + $MainRole
+$FiveBytesAnswer = $ThreeBytesAnswer + "-" + $TicketReadyMark
+
+[Byte[]]$InitMessage = 0x00, 0x01, 0x53
+[Byte[]]$StartMessage = 0x00, 0x02, 0x00, 0x00
+[Byte[]]$ACKMessage = 0x03, 0x04
+[Byte[]]$TestReply = 0x00, 0x08
+[Byte[]]$TestMessage = 0x54, 0x45, 0x53, 0x54, 0x5F, 0x52, 0x53, 0x50
+$FullTestReply = $TestReply + $TestMessage
 
 
+# thanks to Oliver Lipkau for ini-file processing function
+# https://devblogs.microsoft.com/scripting/use-powershell-to-work-with-any-ini-file/
+# 
 function Get-IniContent ($IniFile) {
   $EAccini = @{}
   switch -regex -file $IniFile {
@@ -154,18 +169,6 @@ function ProcessOneTicket() {
 
 
 
-[INT32]$EAMessageCounter = 0
-$StartMsg = "00-01"
-$MainRole = "50"
-$ThreeBytesAnswer = $StartMsg + "-" + $MainRole
-$FiveBytesAnswer = $ThreeBytesAnswer + "-" + $TicketReadyMark
-
-[Byte[]]$InitMessage = 0x00, 0x01, 0x53
-[Byte[]]$StartMessage = 0x00, 0x02, 0x00, 0x00
-[Byte[]]$ACKMessage = 0x03, 0x04
-[Byte[]]$TestReply = 0x00, 0x08
-[Byte[]]$TestMessage = 0x54, 0x45, 0x53, 0x54, 0x5F, 0x52, 0x53, 0x50
-$FullTestReply = $TestReply + $TestMessage
 
 #
 # Ethernet buffer size
@@ -192,10 +195,13 @@ $ErrorBytes = 3
 $ErrorNotMain = 4
 
 
+# Change to Working Directory
+Set-Location -Path $EACCFolder
+Start-Transcript -Path Computer.log
 
 # Check fo INI file
 if ( Test-Path -Path $EAIniFile ) {
-  Write-Host " Loading data from $EAIniFile.. "
+  Write-Host "Loading data from $EAIniFile.. "
   $EAInitParams = Get-IniContent ($EAIniFile)
   $EAOXEMain = $EAInitParams.MainAddress.CPU
   $EATicketPort = $EAInitParams.MainAddress.Port
@@ -205,11 +211,11 @@ if ( Test-Path -Path $EAIniFile ) {
   }
 }
 else {
-  Write-Host " No ini file found. Using default parameters."
+  Write-Host "No ini file found. Using default parameters."
 }
 #
 #
-Write-Host " Host is $EAOXEMain on port $EATicketPort with logging = $LogEnable in $EACCFolder"
+Write-Host "Host is $EAOXEMain on port $EATicketPort with logging = $LogEnable in $EACCFolder"
 
 #
 # Check connection and port
@@ -324,7 +330,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
 
       if ( $KeepAliveReq ) {
         #
-        #        [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + ($TestRequest.Length - 1))])
+        #        [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + ($EATestRequest.Length - 1))])
         Start-Sleep -m $PacketDelay
         <#        $Stream.Write($TestReply, 0, $TestReply.Length)
         $EAMessageCounter++
@@ -333,10 +339,10 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
 #>
         $Stream.Write($FullTestReply, 0, $FullTestReply.Length)
 
-        Write-Host ' Reply with $FullTestReply'
+        Write-Host " $EATestReply sent"
         Write-Host -ForegroundColor Green "--- Runtime" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
         $KeepAliveReq = $false
-        $StartPointer = ($StartPointer + $TestRequest.Length)
+        $StartPointer = ($StartPointer + $EATestRequest.Length)
       }
       if ( $TicketTruncated ) {
         $BufferBuffer = $TruncPart1 + $data
@@ -357,7 +363,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
             Write-Host " Start buffer processing.."
           }
           $TestMark {
-            Write-Host -ForegroundColor Cyan "Test Request."
+            Write-Host -ForegroundColor Cyan "Test Command."
             # !? Need to test for TEST_REQ string here ?!
             # if ( [String]::new([char[]](($BufferBuffer[($StartPointer +2)..($BufferBuffer.Length)]))) -eq "TEST_REQ" )
             <# Insert an answer to TEST_REQ here instead of wait till end of processing  
@@ -365,7 +371,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
             $KeepAliveReq = $true
             Start-Sleep -m $PacketDelay
             $Stream.Write($FullTestReply, 0, $FullTestReply.Length)
-            Write-Host ' Reply with $FullTestReply'
+            Write-Host " $EATestReply sent"
             Write-Host -ForegroundColor Green "--- Runtime" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
             $KeepAliveReq = $false
             $StartPointer = $StartPointer + 10
@@ -401,7 +407,6 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
           }
           switch ($TicketFlag) {
             $EmptyTicket {
-              Write-Host " Empty Ticket"
               $TicketReady = $false
               $StartPointer = $StartPointer + $TicketMessageLength
               $datastring = "Ticket Info"
@@ -418,8 +423,8 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
               $TicketTruncated = $false
               $TicketReady = $false
               $StartPointer = $BufferBuffer.Length
-              #$StartPointer = $StartPointer + $TestRequest.Length
-              $datastring = $TestRequest
+              #$StartPointer = $StartPointer + $EATestRequest.Length
+              $datastring = $EATestRequest
             }
             $MAOTicket {
               #            Write-Host " MAO Ticket"
@@ -489,11 +494,11 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
       $TicketReady = $true
     }
     $TestMark {
-      Write-Host "Test Request."
+      Write-Host "Test Command."
       $KeepAliveReq = $true
     }
-    $TestRequest {
-      Write-Host "Test Request String"
+    $EATestRequest {
+      Write-Host "$EATestRequest received"
       if ($KeepAliveReq) {
         Start-Sleep -m $PacketDelay
         <#
@@ -503,7 +508,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         $Stream.Write($TestMessage, 0, $TestMessage.Length)
 #>
         $Stream.Write($FullTestReply, 0, $FullTestReply.Length)
-        Write-Host ' Reply with $FullTestReply'
+        Write-Host " $EATestReply sent"
         Write-Host -ForegroundColor Green "--- Runtime" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
         $KeepAliveReq = $false
       } 
