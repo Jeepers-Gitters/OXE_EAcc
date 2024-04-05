@@ -28,8 +28,7 @@
 
 Param(
   [Alias ("addr", "main")]
-  [Parameter ( Position = 0, Mandatory = $false, HelpMessage = "Enter Main role CPU address here" )] $EAOXEMain = "192.168.50.18",
-  #$EAOXEMain = "192.168.50.18",
+  [Parameter ( Position = 0, Mandatory = $false, HelpMessage = "Enter Main role CPU address here" )] $EAOXEMain = "192.168.92.52",
   
   [Alias ("port")]
   [Parameter (Position = 1, Mandatory = $false, HelpMessage = "Enter netaccess Port here")]
@@ -40,15 +39,7 @@ Param(
   [Switch] $LogEnable 
 )
 
-# Working Directory for testing
-$EACCFolder = "C:\Temp\EACC\"
-# Ini file
-$EAIniFile = $EACCFolder + "eacc.ini"
-$EALogFile = $EACCFolder + "log.txt"
-# CDR file
-$CDRFile = $EACCFolder + $EAOXEMain + ".cdrs"
-$MAOFile = $EACCFolder + $EAOXEMain + ".mao"
-$VoIPFile = $EACCFolder + $EAOXEMain + ".voip"
+
 $TicketFields = @(4, 5, 30, 30, 20, 10, 16, 5, 20, 30, 2, 1, 17, 5, 10, 10, 5, 5, 5, 1, 16, 7, 1, 2, 10, 5, 40, 40, 10, 10, 10, 10, 1, 2, 2, 2, 30, 5, 10, 1, 17, 30, 5, 5, 5, 5, 5, 6, 6)
 $TicketMessageLength = 772
 $FieldsNames = @("TicketLabel", "TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
@@ -82,6 +73,8 @@ $FiveBytesAnswer = $ThreeBytesAnswer + "-" + $TicketReadyMark
 [Byte[]]$TestReply = 0x00, 0x08
 [Byte[]]$TestMessage = 0x54, 0x45, 0x53, 0x54, 0x5F, 0x52, 0x53, 0x50
 $FullTestReply = $TestReply + $TestMessage
+# Ini file
+$EAIniFile = (Get-Location).Path + "\eacc.ini"
 
 
 # thanks to Oliver Lipkau for ini-file processing function
@@ -195,11 +188,11 @@ $ErrorBytes = 3
 # Role not Main
 $ErrorNotMain = 4
 
-
-# Change to Working Directory
-Set-Location -Path $EACCFolder
-#Start-Transcript -Path Computer.log
-
+# Start-Transcript -Path Computer.log
+# Print banner
+#
+Write-Host -ForegroundColor Yellow "Yet Another Ethernet Accounting Ticket Loader by Jeepers-Gitters@github.com. 2024" 
+#
 # Check for INI file and set variables
 if ( Test-Path -Path $EAIniFile ) {
   $EAInitParams = Get-IniContent ($EAIniFile)
@@ -223,10 +216,17 @@ else {
   Write-Debug -Message "No ini file found. Using default parameters."
 }
 #
+# Change to Working Directory
+Set-Location -Path $EACCFolder
 #
 Write-Debug -Message "Host is $EAOXEMain on port $EATicketPort with logging = $LogEnable in $EACCFolder"
-
 #
+#
+$EALogFile = $EACCFolder + "log.txt"
+# CDR file
+$CDRFile = $EACCFolder + $EAOXEMain + ".cdrs"
+$MAOFile = $EACCFolder + $EAOXEMain + ".mao"
+$VoIPFile = $EACCFolder + $EAOXEMain + ".voip"
 # Check connection and port
 #
 CheckOXE
@@ -372,7 +372,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
             Write-Debug -Message " Start buffer processing.."
           }
           $TestMark {
-            Write-Host -ForegroundColor Cyan "Test Command."
+            Write-Debug -Message "Test Command."
             # !? Need to test for TEST_REQ string here ?!
             # if ( [String]::new([char[]](($BufferBuffer[($StartPointer +2)..($BufferBuffer.Length)]))) -eq "TEST_REQ" )
             <# Insert an answer to TEST_REQ here instead of wait till end of processing  
@@ -519,10 +519,12 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         Write-Debug -Message " $EATestReply sent"
 #        Write-Host -ForegroundColor Green "--- Runtime" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
         $KeepAliveReq = $false
+        Write-Host -NoNewLine "`r Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter Uptime: $($TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss'))" "`r"
+
       } 
     }
     "Ticket Info" {
-      Write-Debug -Message "Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter"
+#      Write-Host  "Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter Uptime: $($TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss'))"
     }
     default {
       if (($datastring.Length -lt 772) -and ($datastring.Length -gt 0)) {
