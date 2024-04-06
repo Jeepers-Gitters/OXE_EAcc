@@ -1,2 +1,2 @@
 # OXE_EAcc
- OXE Etherner Real-Time accounting in PowerShell
+ALU OmniPCX Enterprise Ethernet Real-Time accounting written in PowerShell
