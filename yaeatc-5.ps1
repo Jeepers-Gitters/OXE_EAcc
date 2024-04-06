@@ -213,7 +213,7 @@ if ( Test-Path -Path $EAIniFile ) {
         }
 }
 else {
-  Write-Debug -Message "No ini file found. Using default parameters."
+  Write-Host -Message "No ini file found. Using default parameters."
 }
 #
 # Change to Working Directory
