@@ -202,15 +202,16 @@ if ( Test-Path -Path $EAIniFile ) {
   if ( $EAInitParams.MainAddress.Logging -eq 1) {
     $LogEnable = $true
   }
-    else {
-      $LogEnable = $false
-      }
+  else {
+    $LogEnable = $false
+  }
   if ( $EAInitParams.MainAddress.Debugging -eq 1) {
     $DebugPreference = "Continue"
-    }
-      else {
-        $DebugPreference = "SilentlyContinue"
-        }
+  }
+  else {
+    $DebugPreference = "SilentlyContinue"
+  }
+  Write-Host "Loaded pararameters from $EAIniFile"
 }
 else {
   Write-Host -Message "No ini file found. Using default parameters."
@@ -517,14 +518,14 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
 #>
         $Stream.Write($FullTestReply, 0, $FullTestReply.Length)
         Write-Debug -Message " $EATestReply sent"
-#        Write-Host -ForegroundColor Green "--- Runtime" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
+        #        Write-Host -ForegroundColor Green "--- Runtime" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
         $KeepAliveReq = $false
         Write-Host -NoNewLine "`r Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter Uptime: $($TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss'))" "`r"
 
       } 
     }
     "Ticket Info" {
-#      Write-Host  "Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter Uptime: $($TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss'))"
+      #      Write-Host  "Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter Uptime: $($TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss'))"
     }
     default {
       if (($datastring.Length -lt 772) -and ($datastring.Length -gt 0)) {
