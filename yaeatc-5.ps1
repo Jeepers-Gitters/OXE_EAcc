@@ -191,8 +191,12 @@ $ErrorNotMain = 4
 # Start-Transcript -Path Computer.log
 # Print banner
 #
-Write-Host -ForegroundColor Yellow "Yet Another Ethernet Accounting Ticket Loader by Jeepers-Gitters@github.com. 2024" 
+Write-Host -ForegroundColor Yellow "Yet Another Ethernet Accounting Ticket Loader Script by Jeepers-Gitters@github.com. 2024" 
 #
+if ( $PSVersionTable.PSVersion.Major -eq "7" ) {
+  Write-Host -ForegroundColor Red "This script cant run in Powershell Version 7 at the moment. Use Powershell Version 5. Exiting."
+  exit
+  }
 # Check for INI file and set variables
 if ( Test-Path -Path $EAIniFile ) {
   $EAInitParams = Get-IniContent ($EAIniFile)
