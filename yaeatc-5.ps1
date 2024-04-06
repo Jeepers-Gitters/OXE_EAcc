@@ -18,6 +18,7 @@
 #     ? add return values to CheckOXE function
 #     - change EAMessageCounter to received buffers
 #     - change Write-Host to Write-Debug + added ini file flag for debug
+#     - corrected INI file definition
 <#
 .SYNOPSIS
   Receives CDR tickets on Ethernet from Alcatel-Lucent OmniPCX Enterprise
@@ -74,7 +75,7 @@ $FiveBytesAnswer = $ThreeBytesAnswer + "-" + $TicketReadyMark
 [Byte[]]$TestMessage = 0x54, 0x45, 0x53, 0x54, 0x5F, 0x52, 0x53, 0x50
 $FullTestReply = $TestReply + $TestMessage
 # Ini file
-$EAIniFile = (Get-Location).Path + "\eacc.ini"
+$EAIniFile = $PSScriptRoot + "\eacc.ini"
 
 
 # thanks to Oliver Lipkau for ini-file processing function
@@ -192,6 +193,8 @@ $ErrorNotMain = 4
 # Print banner
 #
 Write-Host -ForegroundColor Yellow "Yet Another Ethernet Accounting Ticket Loader Script by Jeepers-Gitters@github.com. 2024" 
+# Check location where script runs
+Write-Host "Running in $PSScriptRoot"
 #
 if ( $PSVersionTable.PSVersion.Major -eq "7" ) {
   Write-Host -ForegroundColor Red "This script cant run in Powershell Version 7 at the moment. Use Powershell Version 5. Exiting."
@@ -218,7 +221,7 @@ if ( Test-Path -Path $EAIniFile ) {
   Write-Host "Loaded pararameters from $EAIniFile"
 }
 else {
-  Write-Host -Message "No ini file found. Using default parameters."
+  Write-Host "No ini file found. Using default parameters."
 }
 #
 # Change to Working Directory
