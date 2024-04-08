@@ -19,6 +19,7 @@
 #     - change EAMessageCounter to received buffers
 #     - change Write-Host to Write-Debug + added ini file flag for debug
 #     - corrected INI file definition
+#     - added check for PS v.7
 <#
 .SYNOPSIS
   Receives CDR tickets on Ethernet from Alcatel-Lucent OmniPCX Enterprise
@@ -114,7 +115,7 @@ function CheckOXE {
   else {
     Write-Host -ForegroundColor Red "NOK"
     Write-Debug -Message "Exiting. Check network connection."
-    exit $ErrorHost
+    exit $EAErrorHost
   }
   # (Test-NetConnection $EAOXEMain  -Port $EATicketPort).TcpTestSucceeded
   Write-Host -NoNewline "Connection on $EAOXEMain" port "$EATicketPort : "
@@ -131,7 +132,7 @@ function CheckOXE {
   else {
     Write-Host -ForegroundColor Red "NOK"
     Write-Debug -Message "Exiting. Ethernet Account port closed on $($EAOXEMain)."
-    exit $ErrorPort
+    exit $EAErrorPort
   }
   $Client.Close()
 }
@@ -181,13 +182,15 @@ $TicketReady = $false
 # Errors declaration
 #
 # No connection to host
-$ErrorHost = 1
+$EAErrorHost = 1
 # Port 2533 is closed
-$ErrorPort = 2
+$EAErrorPort = 2
 # Wrong answer in Preamble
-$ErrorBytes = 3
+$EAErrorBytes = 3
 # Role not Main
-$ErrorNotMain = 4
+$EAErrorNotMain = 4
+# Powershellv.7 detected
+$EAErrorPowerShell7 = 5
 
 # Start-Transcript -Path Computer.log
 # Print banner
@@ -198,7 +201,7 @@ Write-Host "Running in $PSScriptRoot"
 #
 if ( $PSVersionTable.PSVersion.Major -eq "7" ) {
   Write-Host -ForegroundColor Red "This script cant run in Powershell Version 7 at the moment. Use Powershell Version 5. Exiting."
-  exit
+#  exit $EAErrorPowerShell7
   }
 # Check for INI file and set variables
 if ( Test-Path -Path $EAIniFile ) {
@@ -232,7 +235,7 @@ Write-Debug -Message "Host is $EAOXEMain on port $EATicketPort with logging = $L
 #
 $EALogFile = $EACCFolder + "log.txt"
 # CDR file
-$CDRFile = $EACCFolder + $EAOXEMain + ".cdrs"
+$CDRFile = $EACCFolder + $EAOXEMain + ".cdr"
 $MAOFile = $EACCFolder + $EAOXEMain + ".mao"
 $VoIPFile = $EACCFolder + $EAOXEMain + ".voip"
 # Check connection and port
@@ -247,7 +250,7 @@ $Client.ReceiveTimeout = 31000;
 #
 #Write-Debug -Message "Init Phase"
 if ( $LogEnable ) {
-  #  Write-Debug -Message "Start logging in $EALogFile"
+# Start logging in $EALogFile
     (Get-Date).toString("yyyy/MM/dd HH:mm:ss")  | Out-File -FilePath $EALogFile
 }
 $Stream.Write($InitMessage, 0, $InitMessage.Length)
@@ -277,7 +280,7 @@ switch ($data.Length) {
         Write-Debug -Message "Disconnect." 
         $Stream.Flush()
         $Client.Close()
-        exit $ErrorNotMain
+        exit $EAErrorNotMain
       }
 
     }
@@ -296,10 +299,9 @@ switch ($data.Length) {
     }
   }
 
-  default { exit $ErrorBytes }
+  default { exit $EAErrorBytes }
 }
 $Stream.Write($StartMessage, 0, $StartMessage.Length)
-#$EAMessageCounter++
 $TestKeepAlive = [System.Diagnostics.Stopwatch]::StartNew()
 
 while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
