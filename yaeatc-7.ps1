@@ -172,7 +172,7 @@ function ProcessOneTicket() {
 #
 # For buffer processing purpose set it to 2048
 # the larger the buffer the longer processing concerning TEST_REQ response. Leave to 4096.
-[byte[]]$Rcvbytes = 0..4096 | ForEach-Object { 0xFF }
+[byte[]]$Rcvbytes = 0..4095 | ForEach-Object { 0xFF }
 [Int]$PacketDelay = 250
 $data = $datastring = $NULL
 [Int32]$MAOCounter = 0
@@ -209,12 +209,7 @@ if ( Test-Path -Path $EAIniFile ) {
   $EAOXEMain = $EAInitParams.MainAddress.CPU
   $EATicketPort = $EAInitParams.MainAddress.Port
   $EACCFolder = $EAInitParams.MainAddress.WorkingDir
-  if ( $EAInitParams.MainAddress.Logging -eq 1) {
-    $LogEnable = $true
-  }
-  else {
-    $LogEnable = $false
-  }
+  $LogEnable = $true
   if ( $EAInitParams.MainAddress.Debugging -eq 1) {
     $DebugPreference = "Continue"
   }
@@ -245,65 +240,75 @@ CheckOXE
 $Client = New-Object System.Net.Sockets.TCPClient($EAOXEMain, $EATicketPort)
 $Stream = $Client.GetStream()
 $Client.ReceiveTimeout = 31000;
+$LogEnable = $true
+
 #
 # Preamble
 #
-#Write-Debug -Message "Init Phase"
 if ( $LogEnable ) {
   # Start logging in $EALogFile
     (Get-Date).toString("yyyy/MM/dd HH:mm:ss")  | Out-File -FilePath $EALogFile
 }
 $Stream.Write($InitMessage, 0, $InitMessage.Length)
 $EAMessageCounter++
-#Start-Sleep -m $PacketDelay
-$i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)
-$data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes, 0, $i)
-$data | Format-Hex | Out-File   -FilePath $EALogFile -Append
-$datastring = [System.BitConverter]::ToString($data)
 
-#Write-Debug -Message "$EAMessageCounter. Received $($data.Length) bytes : $datastring"
+#$reader = New-Object System.IO.StreamReader($Stream)
+while ($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) {
+  #$data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes, 0, $i)
+  #$data = (New-Object -TypeName byte[]).Getbytes($Rcvbytes, 0, $i)
+  $data = [System.BitConverter]::ToString($i)
+  $datastring = [System.BitConverter]::ToString($Rcvbytes[0..($i - 1)]) 
+  Write-Host "$EAMessageCounter. Received $($data.Length) bytes : $datastring"
 
-switch ($data.Length) {
-  2 {
-    #            Write-Host -NoNewLine "Got 2 bytes "
-    if ($datastring -eq $StartMsg) {
-      Write-Host -ForegroundColor Yellow "Start sequence reply received, waiting for role..."
-      $i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)
-      $data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes, 0, $i)
-      $data | Format-Hex | Out-File   -FilePath $EALogFile -Append
-      $datastring = [System.BitConverter]::ToString($data)
-      if ($datastring -eq $MainRole) {
+  switch ($data.Length) {
+    2 {
+      #            Write-Host -NoNewLine "Got 2 bytes "
+      if ($datastring -eq $StartMsg) {
+        Write-Host -ForegroundColor Yellow "Start sequence reply received, waiting for role..."
+        $i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)
+        Write-Host $i
+        $data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes, 0, $i)
+        $datastring = [System.BitConverter]::ToString($Rcvbytes[0..($i - 1)]) 
+        #$datastring = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes, 0, $i)
+        $data | Format-Hex | Out-File   -FilePath $EALogFile -Append
+        #$datastring = [System.BitConverter]::ToString($data)
+        if ($datastring -eq $MainRole) {
+          Write-Host -ForegroundColor Yellow "Role is Main. Link Established`n"
+        }
+        else {
+          Write-Host -ForegroundColor Red "Role is not Main $datastring `n"
+          Write-Debug -Message "Disconnect." 
+          $Stream.Flush()
+          $Client.Close()
+          exit $EAErrorNotMain
+        }
+
+      }
+    }
+    3 {
+      if ($datastring -eq $ThreeBytesAnswer) {
+        Write-Host -ForegroundColor Yellow "Start sequence reply received, waiting for role..."
         Write-Host -ForegroundColor Yellow "Role is Main. Link Established`n"
       }
-      else {
-        Write-Host -ForegroundColor Red "Role is not Main  `n"
-        Write-Debug -Message "Disconnect." 
-        $Stream.Flush()
-        $Client.Close()
-        exit $EAErrorNotMain
+    }
+    5 {
+      if ($datastring -eq $FiveBytesAnswer) {
+        Write-Host -ForegroundColor Yellow "Start sequence reply received, waiting for role..."
+        Write-Host -ForegroundColor Yellow "Role is Main. Link Established`n"
+        Write-Host -ForegroundColor Yellow "Getting ticket."
       }
+    }
 
+    default { 
+      Write-Host "Too many bytes received."
+      exit $EAErrorBytes 
     }
   }
-  3 {
-    if ($datastring -eq $ThreeBytesAnswer) {
-      Write-Host -ForegroundColor Yellow "Start sequence reply received, waiting for role..."
-      Write-Host -ForegroundColor Yellow "Role is Main. Link Established`n"
-    }
-  }
-  5 {
-    if ($datastring -eq $FiveBytesAnswer) {
-      Write-Host -ForegroundColor Yellow "Start sequence reply received, waiting for role..."
-      Write-Host -ForegroundColor Yellow "Role is Main. Link Established`n"
-      Write-Host -ForegroundColor Yellow "Getting ticket."
-    }
-  }
-
-  default { exit $EAErrorBytes }
 }
 $Stream.Write($StartMessage, 0, $StartMessage.Length)
 $TestKeepAlive = [System.Diagnostics.Stopwatch]::StartNew()
 
+exit
 while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
   #  Write-Host -ForegroundColor Yellow "--- Wait for tickets" $Global:CDRCounter "/" $MAOCounter "/" $VOIPCounter
   $EAMessageCounter++
@@ -342,7 +347,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
     default {
       $datastring = [System.Text.Encoding]::ASCII.GetString($data)
       $BufferBuffer = $data
-      Write-Debug -Message "Read buffer: $($BufferBuffer.Length)"
+      Write-Host  "Read buffer: $($BufferBuffer.Length)"
       $StartPointer = 0
       $EAIterationCounter = 0
       $EALeftToProcess = $BufferBuffer.Length - $StartPointer
@@ -357,14 +362,15 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         $Stream.Write($TestMessage, 0, $TestMessage.Length)
 #>
         $Stream.Write($FullTestReply, 0, $FullTestReply.Length)
-        Write-Debug -Message " $EATestReply sent"
+
+        Write-Host " $EATestReply sent"
         Write-Host -ForegroundColor Green "--- Runtime" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
         $KeepAliveReq = $false
         $StartPointer = ($StartPointer + $EATestRequest.Length)
       }
       if ( $TicketTruncated ) {
         $BufferBuffer = $TruncPart1 + $data
-        Write-Debug -Message "Appended data from previous packets."
+        Write-Host "Appended data from previous packets."
         $TicketTruncated = $false
         $TicketReady = $true
       }
