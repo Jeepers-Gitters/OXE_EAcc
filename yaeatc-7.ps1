@@ -161,7 +161,7 @@ function ProcessOneTicket() {
       Write-Host $FieldsNames[$f]":" $Global:TicketForm[$f]
     }
   }
-  $Global:TicketForm[2..($Global:TicketForm.Length)] -join "`t" | Out-File -Append $CDRFile
+  $Global:TicketForm[2..($Global:TicketForm.Length)] -join "`t" | Out-File -Append $CDRFile -Encoding string
 }
 
 
