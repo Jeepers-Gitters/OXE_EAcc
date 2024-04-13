@@ -1,5 +1,5 @@
 ﻿#Requires -Version 5
-# version 0.6
+# version 0.8
 #     - add large buffer processing
 #     - remove single message processing and use universal for shorter code
 #     - added TEST_REQ processing in large buffer
@@ -20,6 +20,7 @@
 #     - change Write-Host to Write-Debug + added ini file flag for debug
 #     - corrected INI file definition
 #     - added check for PS v.7
+#     - merge v.5 and v.7
 <#
 .SYNOPSIS
   Receives CDR tickets on Ethernet from Alcatel-Lucent OmniPCX Enterprise
@@ -139,7 +140,6 @@ function CheckOXE {
 }
 
 function ProcessOneTicket() {
-  #  Write-Debug -Message "SMDR Ticket. The length is "  $ProcessTicket.Length
   $Global:TicketForm = @(
     $TicketFields | Select-Object | ForEach-Object {
       $ProcessTicket.Remove($_)
@@ -163,10 +163,6 @@ function ProcessOneTicket() {
   }
   $Global:TicketForm[2..($Global:TicketForm.Length)] -join "`t" | Out-File -Append $CDRFile -Encoding string
 }
-
-
-
-
 #
 # Ethernet buffer size
 # [byte[]]$Rcvbytes = 0..8192 | ForEach-Object {0xFF}
@@ -190,8 +186,6 @@ $EAErrorPort = 2
 $EAErrorBytes = 3
 # Role not Main
 $EAErrorNotMain = 4
-# Powershellv.7 detected
-$EAErrorPowerShell7 = 5
 
 # Start-Transcript -Path Computer.log
 # Print banner
@@ -200,10 +194,7 @@ Write-Host -ForegroundColor Yellow "Yet Another Ethernet Accounting Ticket Loade
 # Check location where script runs
 Write-Host "Running in $PSScriptRoot"
 #
-if ( $PSVersionTable.PSVersion.Major -eq "7" ) {
-  Write-Host -ForegroundColor Red "This script cant run in Powershell Version 7 at the moment. Use Powershell Version 5. Exiting."
-  #  exit $EAErrorPowerShell7
-}
+Write-Debug -Message "This version runs Powershell Version $($PSVersionTable.PSVersion.Major) "
 # Check for INI file and set variables
 if ( Test-Path -Path $EAIniFile ) {
   $EAInitParams = Get-IniContent ($EAIniFile)
@@ -255,11 +246,10 @@ $EAMessageCounter++
 
 #$reader = New-Object System.IO.StreamReader($Stream)
 $i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)  
-#$data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes, 0, $i)
-#$data = (New-Object -TypeName byte[]).Getbytes($Rcvbytes, 0, $i)
 $data = [System.BitConverter]::ToString($i)
-$datastring = [System.BitConverter]::ToString($Rcvbytes[0..($i - 1)]) 
-Write-Host "$EAMessageCounter. Received $($data.Length) bytes : $datastring"
+$datastring = [System.BitConverter]::ToString($Rcvbytes[0..($i - 1)])
+$datastring | Format-Hex | Out-File   -FilePath $EALogFile -Append
+Write-Debug "$EAMessageCounter. Received $($data.Length) bytes : $datastring"
 
 switch ($data.Length) {
   2 {
@@ -345,7 +335,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
     default {
       #$datastring = [System.Text.Encoding]::ASCII.GetString($data)
       $BufferBuffer = $datastring
-      Write-Host  "Read Buffer: $($BufferBuffer.Length)"
+      Write-Debug  "Read Buffer: $($BufferBuffer.Length)"
       $StartPointer = 0
       $EAIterationCounter = 0
       $EALeftToProcess = $BufferBuffer.Length - $StartPointer
@@ -369,7 +359,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
       if ( $TicketTruncated ) {
         #        $BufferBuffer = $TruncPart1 + $data
         $BufferBuffer = $TruncPart1 + $datastring
-        Write-Host "Appended data from previous packets."
+        Write-Debug "Appended data from previous packets."
         $TicketTruncated = $false
         $TicketReady = $true
       }
@@ -387,10 +377,9 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
           }
           $TestMark {
             Write-Debug -Message "$($TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')) Test Command."
-            # !? Need to test for TEST_REQ string here ?!
+            # !? Need to test for the following TEST_REQ string here ?!
             # if ( [String]::new([char[]](($BufferBuffer[($StartPointer +2)..($BufferBuffer.Length)]))) -eq "TEST_REQ" )
-            <# Insert an answer to TEST_REQ here instead of wait till end of processing  
-#>
+            <# Insert an answer to TEST_REQ here instead of wait till end of processing #>
             $KeepAliveReq = $true
             Start-Sleep -m $PacketDelay
             $Stream.Write($FullTestReply, 0, $FullTestReply.Length)
@@ -404,7 +393,6 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
             exit
           }
         }
-
         #
         # Load one ticket record into $data variable
         $data = $BufferBuffer[$StartPointer..($StartPointer + $TicketMessageLength)]
@@ -450,7 +438,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
               $datastring = $EATestRequest
             }
             $MAOTicket {
-              #            Write-Debug -Message " MAO Ticket"
+              #Write-Debug -Message " MAO Ticket"
               $MAOdata = $ProcessTicket.Substring(4, $ProcessTicket.IndexOf(0x0a) - 4) -replace ("=", "`t") | Out-File -Append $MAOFile
               $MAOdata = $MAOdata -replace ".{1}$" -Split ";"
               if ( $TicketPrintOut ) {
@@ -493,11 +481,6 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
             }
 
           }
-
-          #       $StartPointer = $StartPointer + $TicketMessageLength
-
-
-          #  Write-Debug -Message "Buffer processing.. $Global:CDRCounter tickets processed "
         }
         #  Write-Host $StartPointer "vs" $BufferBuffer.Length
         # Проверка на длину буфера закрывающая скобка
@@ -510,7 +493,6 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
 
   Write-Debug -Message "$($TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')) Received $($data.Length) bytes: "
   # $datastring
-
   switch ($datastring) {
     $TicketReadyMark {
       Write-Debug -Message "Ticket Ready."
@@ -524,18 +506,11 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
       Write-Debug -Message "$EATestRequest received"
       if ($KeepAliveReq) {
         Start-Sleep -m $PacketDelay
-        <#
-        $Stream.Write($TestReply, 0, $TestReply.Length)
-        $EAMessageCounter++
-        Start-Sleep -m $PacketDelay
-        $Stream.Write($TestMessage, 0, $TestMessage.Length)
-#>
         $Stream.Write($FullTestReply, 0, $FullTestReply.Length)
         Write-Debug -Message " $EATestReply sent"
         #        Write-Host -ForegroundColor Green "--- Runtime" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
         $KeepAliveReq = $false
         Write-Host -NoNewLine "`r Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter Uptime: $($TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss'))" "`r"
-
       } 
     }
     "Ticket Info" {
@@ -555,9 +530,8 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
     }
   }
 }
-
 #
-# Main body
+# 
 #
 if ( -Not (Get-NetTCPConnection -State Established -RemotePort $EATicketPort -ErrorAction SilentlyContinue) ) {
   Write-Debug -Message "Connection closed from server."
