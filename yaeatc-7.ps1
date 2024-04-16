@@ -14,13 +14,14 @@
 #     ? Check with Stand-by CPU address and with physical main CPU address
 #     ? Send an ACK to every ticket
 #     - added ini file loading
-#     ? iteration counter reset on new buffer
+#     - iteration counter reset on new buffer
 #     ? add return values to CheckOXE function
 #     - change EAMessageCounter to received buffers
 #     - change Write-Host to Write-Debug + added ini file flag for debug
 #     - corrected INI file definition
 #     - added check for PS v.7
 #     - merge v.5 and v.7
+#     - added CDR printout configuration parameter + short CDR printout
 <#
 .SYNOPSIS
   Receives CDR tickets on Ethernet from Alcatel-Lucent OmniPCX Enterprise
@@ -39,7 +40,7 @@ Param(
   
   [Alias ("log")]
   [Parameter (Mandatory = $false )]
-  [Switch] $LogEnable 
+  [Switch] $EALogEnable 
 )
 
 
@@ -64,7 +65,7 @@ $StartPointer = 0
 $EAIterationCounter = 0 
 $EALeftToProcess = 0 
 $TicketPrintOut = $false
-$KeepAliveReq = $false
+$EAKeepAliveReq = $false
 [INT32]$EAMessageCounter = 0
 $StartMsg = "00-01"
 $MainRole = "50"
@@ -156,11 +157,30 @@ function ProcessOneTicket() {
     $Global:TicketForm[$f] = $Global:TicketForm[$f].Trim()
   }
   if ( $TicketPrintOut ) {
-    Write-Host -ForegroundColor Yellow   "--- Ticket " $Global:CDRCounter
-    for ($f = 2; $f -lt $Global:TicketForm.Length; $f++) {
-      Write-Host $FieldsNames[$f]":" $Global:TicketForm[$f]
-    }
+#
+# Full non-processed ticket printout
+#    Write-Host "--- Ticket " $Global:CDRCounter
+#    for ($f = 2; $f -lt $Global:TicketForm.Length; $f++) {
+#      Write-Host $FieldsNames[$f]":" $Global:TicketForm[$f]
+#    }
+#
+# Short processed printout
+    $EAShortCDR = @()
+    $EAShortCDR += $TicketForm[3]
+    $EAShortCDR += $TicketForm[2]
+    $EAShortCDR += [datetime]::ParseExact($TicketForm[40].Split(" ")[0], ”yyyyMMdd”,$null).toshortdatestring()
+    $EAShortCDR += $TicketForm[12].Split(" ")[1]
+    $EAShortCDR += [timespan]::FromSeconds($TicketForm[15])
+    $EAShortCDR += $TicketForm[17]
+ <#
+    foreach ($point in $EAShortCDR) {
+      Write-Host -NoNewline -ForegroundColor Yellow  $point "`t"
+      }
+      Write-Host ""
+      #>
   }
+  
+   "{0,8}|{1,21}|{2,11}|{3,9}|{4,9}|{5,5}"  -f $EAShortCDR[0],  $EAShortCDR[1], $EAShortCDR[2] , $EAShortCDR[3], $EAShortCDR[4],  $EAShortCDR[5]
   $Global:TicketForm[2..($Global:TicketForm.Length)] -join "`t" | Out-File -Append $CDRFile -Encoding string
 }
 #
@@ -201,17 +221,30 @@ if ( Test-Path -Path $EAIniFile ) {
   $EAOXEMain = $EAInitParams.MainAddress.CPU
   $EATicketPort = $EAInitParams.MainAddress.Port
   $EACCFolder = $EAInitParams.MainAddress.WorkingDir
-  $LogEnable = $true
+  $EALogEnable = $true
+    if ( $EAInitParams.MainAddress.CDRPrint -eq 1) {
+      $EALogEnable = $true
+  }
+    else {
+      $EALogEnable = $false
+      }
+
+  if ( $EAInitParams.MainAddress.CDRPrint -eq 1) {
+    $TicketPrintOut = $true
+  }
+    else {
+      $TicketPrintOut = $false
+      }
   if ( $EAInitParams.MainAddress.Debugging -eq 1) {
     $DebugPreference = "Continue"
   }
-  else {
+    else {
     $DebugPreference = "SilentlyContinue"
   }
   Write-Host "Loaded pararameters from $EAIniFile"
 }
 else {
-  Write-Host "No ini file found. Using default parameters."
+  Write-Host "No $EAIniFile file found. Using default parameters."
 }
 #
 # Change to Working Directory
@@ -340,7 +373,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
       $EAIterationCounter = 0
       $EALeftToProcess = $BufferBuffer.Length - $StartPointer
 
-      if ( $KeepAliveReq ) {
+      if ( $EAKeepAliveReq ) {
         #
         #        [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + ($EATestRequest.Length - 1))])
         Start-Sleep -m $PacketDelay
@@ -351,9 +384,9 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
 #>
         $Stream.Write($FullTestReply, 0, $FullTestReply.Length)
 
-        Write-Host " $EATestReply sent"
-        Write-Host -ForegroundColor Green "--- Runtime" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
-        $KeepAliveReq = $false
+        Write-Debug -Message " $EATestReply sent"
+#        Write-Host -ForegroundColor Green "--- Runtime" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
+        $EAKeepAliveReq = $false
         $StartPointer = ($StartPointer + $EATestRequest.Length)
       }
       if ( $TicketTruncated ) {
@@ -380,11 +413,11 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
             # !? Need to test for the following TEST_REQ string here ?!
             # if ( [String]::new([char[]](($BufferBuffer[($StartPointer +2)..($BufferBuffer.Length)]))) -eq "TEST_REQ" )
             <# Insert an answer to TEST_REQ here instead of wait till end of processing #>
-            $KeepAliveReq = $true
+            $EAKeepAliveReq = $true
             Start-Sleep -m $PacketDelay
             $Stream.Write($FullTestReply, 0, $FullTestReply.Length)
             Write-Debug -Message "$($TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')) $EATestReply sent"
-            $KeepAliveReq = $false
+            $EAKeepAliveReq = $false
             $StartPointer = $StartPointer + 10
             $datastring = $NoOperation
           }
@@ -491,7 +524,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
     }
   }
 
-  Write-Debug -Message "$($TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')) Received $($data.Length) bytes: "
+  Write-Debug -Message "$($TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')) Received $($i) bytes."
   # $datastring
   switch ($datastring) {
     $TicketReadyMark {
@@ -500,17 +533,17 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
     }
     $TestMark {
       Write-Debug -Message "Test Command."
-      $KeepAliveReq = $true
+      $EAKeepAliveReq = $true
     }
     $EATestRequest {
       Write-Debug -Message "$EATestRequest received"
-      if ($KeepAliveReq) {
+      if ($EAKeepAliveReq) {
         Start-Sleep -m $PacketDelay
         $Stream.Write($FullTestReply, 0, $FullTestReply.Length)
         Write-Debug -Message " $EATestReply sent"
         #        Write-Host -ForegroundColor Green "--- Runtime" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
-        $KeepAliveReq = $false
-        Write-Host -NoNewLine "`r Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter Uptime: $($TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss'))" "`r"
+        $EAKeepAliveReq = $false
+#        Write-Host -NoNewLine "`r Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter Uptime: $($TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss'))" "`r"
       } 
     }
     "Ticket Info" {
