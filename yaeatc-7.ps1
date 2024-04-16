@@ -22,6 +22,7 @@
 #     - added check for PS v.7
 #     - merge v.5 and v.7
 #     - added CDR printout configuration parameter + short CDR printout
+#     - added Beep configuration in eacc.ini
 <#
 .SYNOPSIS
   Receives CDR tickets on Ethernet from Alcatel-Lucent OmniPCX Enterprise
@@ -221,26 +222,30 @@ if ( Test-Path -Path $EAIniFile ) {
   $EAOXEMain = $EAInitParams.MainAddress.CPU
   $EATicketPort = $EAInitParams.MainAddress.Port
   $EACCFolder = $EAInitParams.MainAddress.WorkingDir
-  $EALogEnable = $true
-    if ( $EAInitParams.MainAddress.CDRPrint -eq 1) {
+    if ( $EAInitParams.MainAddress.CDRPrint -eq 1 ) {
       $EALogEnable = $true
   }
     else {
       $EALogEnable = $false
       }
-
-  if ( $EAInitParams.MainAddress.CDRPrint -eq 1) {
+  if ( $EAInitParams.MainAddress.CDRPrint -eq 1 ) {
     $TicketPrintOut = $true
   }
     else {
       $TicketPrintOut = $false
       }
-  if ( $EAInitParams.MainAddress.Debugging -eq 1) {
+  if ( $EAInitParams.MainAddress.Debugging -eq 1 ) {
     $DebugPreference = "Continue"
   }
     else {
     $DebugPreference = "SilentlyContinue"
   }
+  if ( $EAInitParams.MainAddress.CDRBeep -eq 1 ) {
+    $EACDRBeep = $true
+    }
+    else {
+    $EACDRBeep = $false
+    }
   Write-Host "Loaded pararameters from $EAIniFile"
 }
 else {
@@ -496,7 +501,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
             }
             $CDRTicket {
               if ( -Not ($TicketTruncated) ) {
-                [System.Console]::Beep()
+                if ( $EACDRBeep ) { [System.Console]::Beep() }
                 ProcessOneTicket
                 $TicketReady = $false
               }
