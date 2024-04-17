@@ -1,2 +1,6 @@
 /scetch
 eacc.ini
+.lock
+buffer.ps1
+WinForms.ps1
+fix2csv.ps1

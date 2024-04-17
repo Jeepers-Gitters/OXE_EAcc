@@ -23,6 +23,8 @@
 #     - merge v.5 and v.7
 #     - added CDR printout configuration parameter + short CDR printout
 #     - added Beep configuration in eacc.ini
+#     - added .lock file check
+#     - added CallType to CDR printout
 <#
 .SYNOPSIS
   Receives CDR tickets on Ethernet from Alcatel-Lucent OmniPCX Enterprise
@@ -48,6 +50,7 @@ Param(
 $TicketFields = @(4, 5, 30, 30, 20, 10, 16, 5, 20, 30, 2, 1, 17, 5, 10, 10, 5, 5, 5, 1, 16, 7, 1, 2, 10, 5, 40, 40, 10, 10, 10, 10, 1, 2, 2, 2, 30, 5, 10, 1, 17, 30, 5, 5, 5, 5, 5, 6, 6)
 $TicketMessageLength = 772
 $FieldsNames = @("TicketLabel", "TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
+$EACallTypes = @("OC", "OCP", "PN", "LN", "IC", "ICP", "UN", "PO", "POP", "IP", "PIP", "11", "12", "PIC", "LL","LT")
 $TicketMark = "01-00"
 $TestMark = "00-08"
 $BufferTest = "00-08-54-45"
@@ -119,6 +122,7 @@ function CheckOXE {
   else {
     Write-Host -ForegroundColor Red "NOK"
     Write-Debug -Message "Exiting. Check network connection."
+    Clear-LockFile
     exit $EAErrorHost
   }
   # (Test-NetConnection $EAOXEMain  -Port $EATicketPort).TcpTestSucceeded
@@ -136,9 +140,16 @@ function CheckOXE {
   else {
     Write-Host -ForegroundColor Red "NOK"
     Write-Debug -Message "Exiting. Ethernet Account port closed on $($EAOXEMain)."
+    Clear-LockFile
     exit $EAErrorPort
   }
   $Client.Close()
+}
+
+function Clear-LockFile () {
+if ( ( Test-Path $EALockFile ) ) {
+  Remove-Item -Path  $EALockFile -Force
+  }
 }
 
 function ProcessOneTicket() {
@@ -169,10 +180,12 @@ function ProcessOneTicket() {
     $EAShortCDR = @()
     $EAShortCDR += $TicketForm[3]
     $EAShortCDR += $TicketForm[2]
+    $EAShortCDR += $EACallTypes[$TicketForm[10]]
     $EAShortCDR += [datetime]::ParseExact($TicketForm[40].Split(" ")[0], ”yyyyMMdd”,$null).toshortdatestring()
     $EAShortCDR += $TicketForm[12].Split(" ")[1]
     $EAShortCDR += [timespan]::FromSeconds($TicketForm[15])
     $EAShortCDR += $TicketForm[17]
+    $EAShortCDR += $TicketForm[36]
  <#
     foreach ($point in $EAShortCDR) {
       Write-Host -NoNewline -ForegroundColor Yellow  $point "`t"
@@ -181,7 +194,7 @@ function ProcessOneTicket() {
       #>
   }
   
-   "{0,8}|{1,21}|{2,11}|{3,9}|{4,9}|{5,5}"  -f $EAShortCDR[0],  $EAShortCDR[1], $EAShortCDR[2] , $EAShortCDR[3], $EAShortCDR[4],  $EAShortCDR[5]
+   "|{0,8}|{1,20}|{2,3}|{3,11}|{4,9}|{5,9}|{6,5}|{7,20}|"  -f $EAShortCDR[0],  $EAShortCDR[1], $EAShortCDR[2] , $EAShortCDR[3], $EAShortCDR[4], $EAShortCDR[5], $EAShortCDR[6], $EAShortCDR[7]
   $Global:TicketForm[2..($Global:TicketForm.Length)] -join "`t" | Out-File -Append $CDRFile -Encoding string
 }
 #
@@ -207,13 +220,25 @@ $EAErrorPort = 2
 $EAErrorBytes = 3
 # Role not Main
 $EAErrorNotMain = 4
+# Script already running
+$EAScriptRunning = 5
 
 # Start-Transcript -Path Computer.log
 # Print banner
-#
-Write-Host -ForegroundColor Yellow "Yet Another Ethernet Accounting Ticket Loader Script by Jeepers-Gitters@github.com. 2024" 
+# Here we go
+Write-Host -ForegroundColor Yellow "Yet Another Ethernet Accounting Ticket Loader Script by Jeepers-Gitters@github.com. ✓ TABS2024® ©2024" 
 # Check location where script runs
 Write-Host "Running in $PSScriptRoot"
+# Check if already runnung
+#
+  $EALockFile = "$PSScriptRoot\.lock"
+    if (-not (Test-Path $EALockFile)) {
+        New-Item -ItemType File -Path $EALockFile | Out-Null
+    }
+      else {
+        Write-Host -ForegroundColor Red "Found $EALockFile. Looks like script already running or crashed. Exiting."
+        exit $EAScriptRunning
+        }
 #
 Write-Debug -Message "This version runs Powershell Version $($PSVersionTable.PSVersion.Major) "
 # Check for INI file and set variables
@@ -306,6 +331,7 @@ switch ($data.Length) {
         Write-Debug -Message "Disconnect." 
         $Stream.Flush()
         $Client.Close()
+        Clear-LockFile
         exit $EAErrorNotMain
       }
 
@@ -327,6 +353,7 @@ switch ($data.Length) {
 
   default { 
     Write-Host "Too many bytes received."
+    Clear-LockFile
     exit $EAErrorBytes 
   }
 }
@@ -577,3 +604,6 @@ if ( -Not (Get-NetTCPConnection -State Established -RemotePort $EATicketPort -Er
 Write-Debug -Message "Disconnect." "Uptime: " $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss') "Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter"
 $Stream.Flush()
 $Client.Close()
+if ( ( Test-Path $EALockFile ) ) {
+  Remove-Item -Path  $lockFile -Force
+  }
