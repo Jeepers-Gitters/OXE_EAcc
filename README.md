@@ -24,6 +24,9 @@
  * Set execution Policy for Powershell scripts on your PC or server so that you can run this script (See e.g. <https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.security/set-executionpolicy?view=powershell-7.4>)
  * Run script .\tabs24.ps1
  * CDRs are stored in files with "MainCPUAddress" as name and with .cdr .mao .voip as extensions. They gets appended on every start of the script.
+ * Screen example:
+ ![изображение](https://github.com/Jeepers-Gitters/OXE_EAcc/assets/81351542/0c37e1ab-9f36-4d67-a26a-5724490f7119)
+
 # To-Do
  * Ctrl-C processing inside the script for clean break
  * Spatial Redundancy support
