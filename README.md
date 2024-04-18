@@ -8,7 +8,7 @@
 * Tested only on Windows OS's
 # Installation
  Copy .ps1 and eacc.ini files to any folder you like, change parameters in eacc.ini file
-# Configuraition
+# Configuration
  Script parameters are configured in eacc.ini file. Names are self-explanatory nevertheless here is the description:
  - CPU: Main CPU address, only IPv4 addresses supported
  - Port: Default is 2533. May be needed in case of NATed connection to OXE (Never tried)
