@@ -636,5 +636,5 @@ Write-Debug -Message "Disconnect." "Uptime: " $TestKeepAlive.Elapsed.ToString('d
 $Stream.Flush()
 $Client.Close()
 if ( ( Test-Path $EALockFile ) ) {
-  Remove-Item -Path  $lockFile -Force
+  Remove-Item -Path  $EALockFile -Force
   }
