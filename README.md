@@ -31,5 +31,5 @@
  * Windows Service mode (for automatic restart etc)
  * Test on Linux
 # Disclaimer
- This script is distributed "AS IT IS". Use it at your own risk. No immediate bug correction. no additional feature implementation guaranteed. 
+ This script is distributed "AS IS". Use it at your own risk. No immediate bug correction. no additional feature implementation guaranteed. 
  
