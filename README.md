@@ -1,11 +1,11 @@
 # OXE_EAcc
  Alcatel-Lucent OmniPCX Enterprise PABX Ethernet Real-Time accounting tickets Processor script written in PowerShell
 # Notes
-* Written in PowerShell as main purpose was just to save tickets. For processing of the files you need another tools.
+* Written in PowerShell as main purpose is just to save tickets for further processing. For that processing of the files you need another tools.
 * No DNS support, only IP-address of CPU supported
 * No support of spatial redundancy at the moment
 * Writes CDR, MAO and VoIP tickets in files. No processing of VoIP files at the moment
-* Tested only on Windows
+* Tested only on Windows OS's
 # Installation
  Copy .ps1 and eacc.ini files to any folder you like, change parameters in eacc.ini file
 # Configuraition
@@ -26,4 +26,6 @@
 * Script signing for security
 * Windows Service mode (for automatic restart etc)
 * Test on Linux
+# Disclaimer
+ This script is distributed "AS IT IS". Use it at your own risk. No immediate bug correction. no additional feature implementation guaranteed. 
  
