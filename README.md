@@ -25,7 +25,7 @@
  * Run script .\tabs24.ps1
  * CDRs are stored in files with "MainCPUAddress" as name and with .cdr .mao .voip as extensions. They gets appended on every start of the script.
  * Screen example:
- ![изображение](https://github.com/Jeepers-Gitters/OXE_EAcc/assets/81351542/0c37e1ab-9f36-4d67-a26a-5724490f7119)
+![изображение](https://github.com/Jeepers-Gitters/OXE_EAcc/assets/81351542/8ba5cc89-081c-456d-b51f-891ae82c154e)
 
 # To-Do
  * Ctrl-C processing inside the script for clean break
