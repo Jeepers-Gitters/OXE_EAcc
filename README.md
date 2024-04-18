@@ -17,8 +17,8 @@
  - Debugging: If set to "1" enables debugging messages on console
  - CDRPrint: If set to "1" prints CDR one-liner on console for monitoring purpose
  - CDRBeep: If set to "1" beeps on every ticket received (could be annoying)
- Changed parameters are taken into account after restart of script
- Sending of CDR, MAO and VoIP tickets from CPU also needs certain configuration on PABX side - see OXE's System Documentation 
+ - Changed parameters are taken into account after restart of script
+ - Sending of CDR, MAO and VoIP tickets from CPU also needs certain configuration on PABX side - see OXE's System Documentation 
 # Run
  * Start Powershell console (not recommended to run it in Windows Powershell ISE or Visual Studio Code)
  * Set execution Policy for Powershell scripts on your PC or server so that you can run this script (See e.g. <https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.security/set-executionpolicy?view=powershell-7.4>)
