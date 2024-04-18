@@ -1,4 +1,39 @@
-﻿#Requires -Version 5
+﻿
+<#PSScriptInfo
+
+.VERSION 0.8
+
+.GUID d37ef3db-b18e-4d74-a3d4-10b2cc7d1787
+
+.AUTHOR Jeepers-Gitters@github.com
+
+.COMPANYNAME 
+
+.COPYRIGHT 
+
+.TAGS
+ OXE, ALU, CDR, SMDR 
+
+.LICENSEURI 
+
+.PROJECTURI
+ https://github.com/Jeepers-Gitters/OXE_EAcc 
+
+.ICONURI 
+
+.EXTERNALMODULEDEPENDENCIES 
+ 
+.REQUIREDSCRIPTS 
+
+.EXTERNALSCRIPTDEPENDENCIES 
+
+.RELEASENOTES
+
+.DESCRIPTION 
+ OXE Real-Time CDR handler 
+
+#> 
+#Requires -Version 5
 # version 0.8
 #     - add large buffer processing
 #     - remove single message processing and use universal for shorter code
