@@ -23,6 +23,7 @@
  Start Powershell console (not recommended to run it in Windows Powershell ISE or Visual Studio Code)
  Set execution Policy for Powershell scripts on your PC or server so that you can run this script (See e.g. <https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.security/set-executionpolicy?view=powershell-7.4>)
  Run script .\yeacct
+ CDRs are stored in files with <MainCPUAddress> name and .cdr, .mao, .voip extensions
 # To-Do
 * Ctrl-C processing inside the script for clean break
 * Spatial Redundancy support
