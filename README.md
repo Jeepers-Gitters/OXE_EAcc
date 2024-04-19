@@ -26,6 +26,15 @@
  * CDRs are stored in files with "MainCPUAddress" as name and with .cdr .mao .voip as extensions. They gets appended on every start of the script.
  * Screen example:
 ![изображение](https://github.com/Jeepers-Gitters/OXE_EAcc/assets/81351542/8ba5cc89-081c-456d-b51f-891ae82c154e)
+ * Printed CDR fields:
+    - "ChargedNumber"
+    - "CalledNumber"
+    - "CallType"
+    - "StartDate"
+    - "StartTime"
+    - "Duration"
+    - "TrunkGroupNumber"
+    - "InitialDialledNumber"
 
 # To-Do
  * Ctrl-C processing inside the script for clean break
