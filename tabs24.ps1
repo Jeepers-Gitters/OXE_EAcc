@@ -1,7 +1,7 @@
 ﻿
 <#PSScriptInfo
 
-.VERSION 0.8
+.VERSION 0.8.1
 
 .GUID d37ef3db-b18e-4d74-a3d4-10b2cc7d1787
 
@@ -28,9 +28,11 @@
 .EXTERNALSCRIPTDEPENDENCIES 
 
 .RELEASENOTES
+ - modified for Linux pwsh compatibilities
 
 .DESCRIPTION 
- OXE Real-Time CDR handler 
+This script uses ALU netaccess protocol for receiving real-time tickets on Ethernet. All received tickets without
+ any processing are written to appropriate files. 
 
 #> 
 #Requires -Version 5
@@ -60,13 +62,6 @@
 #     - added Beep configuration in eacc.ini
 #     - added .lock file check
 #     - added CallType to CDR printout
-<#
-.SYNOPSIS
-  Receives CDR tickets on Ethernet from Alcatel-Lucent OmniPCX Enterprise
-.DESCRIPTION
-  This script uses ALU netaccess protocol for receiving real-time tickets on Ethernet. All received tickets without
-  any processing are written to appropriate files.
-#>
 
 Param(
   [Alias ("addr", "main")]
@@ -110,6 +105,8 @@ $StartMsg = "00-01"
 $MainRole = "50"
 $ThreeBytesAnswer = $StartMsg + "-" + $MainRole
 $FiveBytesAnswer = $ThreeBytesAnswer + "-" + $TicketReadyMark
+# Linux and Windows compatibility
+$DirSeparator = [IO.Path]::DirectorySeparatorChar
 
 [Byte[]]$InitMessage = 0x00, 0x01, 0x53
 [Byte[]]$StartMessage = 0x00, 0x02, 0x00, 0x00
@@ -118,8 +115,9 @@ $FiveBytesAnswer = $ThreeBytesAnswer + "-" + $TicketReadyMark
 [Byte[]]$TestMessage = 0x54, 0x45, 0x53, 0x54, 0x5F, 0x52, 0x53, 0x50
 $FullTestReply = $TestReply + $TestMessage
 # Ini file
-$EAInitFile = "$PSScriptRoot\eacc.ini"
-$EALockFile = "$PSScriptRoot\.lock"
+$EAInitFile = $PSScriptRoot + $DirSeparator + "eacc.ini"
+#$EAInitFile = "$PSScriptRoot$DirSeparatoreacc.ini"
+$EALockFile = $PSScriptRoot + $DirSeparator + ".lock"
 
 
 # thanks to Oliver Lipkau for ini-file processing function
@@ -275,6 +273,7 @@ if (-not (Test-Path $EALockFile)) {
     exit $EAScriptRunning
     }
 #
+
 Write-Debug -Message "This version runs Powershell Version $($PSVersionTable.PSVersion.Major) "
 # Check for INI file and set variables
 if ( Test-Path -Path $EAInitFile ) {
@@ -315,11 +314,12 @@ if ( Test-Path -Path $EAInitFile ) {
 # Change to Working Directory
 Set-Location -Path $EACCFolder
 Write-Debug -Message "Host is $EAOXEMain on port $EATicketPort with logging = $LogEnable in $EACCFolder"
-$EALogFile = $EACCFolder + "log.txt"
+#$EALogFile = $EACCFolder + "log.txt"
+$EALogFile = $EACCFolder + $DirSeparator + "log.txt"
 # CDR file
-$CDRFile = $EACCFolder + $EAOXEMain + ".cdr"
-$MAOFile = $EACCFolder + $EAOXEMain + ".mao"
-$VoIPFile = $EACCFolder + $EAOXEMain + ".voip"
+$CDRFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".cdr"
+$MAOFile = $EACCFolder+ $DirSeparator + $EAOXEMain + ".mao"
+$VoIPFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".voip"
 # Check connection and port
 #
 CheckOXE
@@ -448,7 +448,6 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         $Stream.Write($FullTestReply, 0, $FullTestReply.Length)
 
         Write-Debug -Message " $EATestReply sent"
-#        Write-Host -ForegroundColor Green "--- Runtime" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
         $EAKeepAliveReq = $false
         $StartPointer = ($StartPointer + $EATestRequest.Length)
       }
@@ -579,16 +578,13 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
           }
         }
         #  Write-Host $StartPointer "vs" $BufferBuffer.Length
-        # Проверка на длину буфера закрывающая скобка
         #        }
       } # closing bracket for line 322
-      #$datastring = "Ticket Info"
 
     }
   }
 
   Write-Debug -Message "$($TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')) Received $($i) bytes."
-  # $datastring
   switch ($datastring) {
     $TicketReadyMark {
       Write-Debug -Message "Ticket Ready."
