@@ -1,0 +1,16 @@
+0	OC:	PublicNetworkOutgoingCall
+1	OCP:	PublicNetworkOutgoingCallThroughPrivateNetwork 
+2	PN:	PrivateNetworkCall
+3	LN:	LocalNetworkCall 
+4	IC:	PublicNetworkIncomingCall
+5	ICP:	PublicNetworkIncomingCallThroughPrivateNetwork
+6	UN:	Unspecified
+7	PO:	PrivateNetworkOutgoingCallToPublicNetwork 
+8	POP:	PrivateNetworkOutgoingCallToPrivateNetwork 
+9	IP:	PublicNetworkIncomingCallToPrivateNetwork
+10	PIP:	PrivateNetworkIncomingCallToPrivateNetwork
+11:	PublicOrPrivateNetworkOutgoingCallThroughPrivateNetwork
+12:	PublicOrPrivateNetworkIncomingCallThroughPrivateNetwork
+13	PIC:	PrivateNetworkIncomingCall
+14	LL:	LocalLocalCall
+15	LT:	LocalTransit
