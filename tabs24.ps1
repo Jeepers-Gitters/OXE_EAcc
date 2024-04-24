@@ -80,7 +80,7 @@ Param(
 $TicketFields = @(4, 5, 30, 30, 20, 10, 16, 5, 20, 30, 2, 1, 17, 5, 10, 10, 5, 5, 5, 1, 16, 7, 1, 2, 10, 5, 40, 40, 10, 10, 10, 10, 1, 2, 2, 2, 30, 5, 10, 1, 17, 30, 5, 5, 5, 5, 5, 6, 6)
 $TicketMessageLength = 772
 $FieldsNames = @("TicketLabel", "TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
-$EACallTypes = @("OC", "OCP", "PN", "LN", "IC", "ICP", "UN", "PO", "POP", "IP", "PIP", "11", "12", "PIC", "LL","LT")
+$EACallTypes = @("OC", "OCP", "PN", "LN", "IC", "ICP", "UN", "PO", "POP", "IP", "PIP", "11", "12", "PIC", "LL", "LT")
 $TicketMark = "01-00"
 $TestMark = "00-08"
 $BufferTest = "00-08-54-45"
@@ -116,7 +116,6 @@ $DirSeparator = [IO.Path]::DirectorySeparatorChar
 $FullTestReply = $TestReply + $TestMessage
 # Ini file
 $EAInitFile = $PSScriptRoot + $DirSeparator + "eacc.ini"
-#$EAInitFile = "$PSScriptRoot$DirSeparatoreacc.ini"
 $EALockFile = $PSScriptRoot + $DirSeparator + ".lock"
 
 
@@ -181,8 +180,8 @@ function CheckOXE {
 }
 
 function Clear-LockFile () {
-if ( ( Test-Path $EALockFile ) ) {
-  Remove-Item -Path  $EALockFile -Force
+  if ( ( Test-Path $EALockFile ) ) {
+    Remove-Item -Path  $EALockFile -Force
   }
 }
 
@@ -203,32 +202,25 @@ function ProcessOneTicket() {
     $Global:TicketForm[$f] = $Global:TicketForm[$f].Trim()
   }
   if ( $TicketPrintOut ) {
-#
-# Full non-processed ticket printout
-#    Write-Host "--- Ticket " $Global:CDRCounter
-#    for ($f = 2; $f -lt $Global:TicketForm.Length; $f++) {
-#      Write-Host $FieldsNames[$f]":" $Global:TicketForm[$f]
-#    }
-#
-# Short processed printout
+    #
+    # Full non-processed ticket printout
+    #    Write-Host "--- Ticket " $Global:CDRCounter
+    #    for ($f = 2; $f -lt $Global:TicketForm.Length; $f++) {
+    #      Write-Host $FieldsNames[$f]":" $Global:TicketForm[$f]
+    #    }
+    #
+    # Short processed printout
     $EAShortCDR = @()
     $EAShortCDR += $TicketForm[3]
     $EAShortCDR += $TicketForm[2]
     $EAShortCDR += $EACallTypes[$TicketForm[10]]
-    $EAShortCDR += [datetime]::ParseExact($TicketForm[40].Split(" ")[0], ”yyyyMMdd”,$null).toshortdatestring()
+    $EAShortCDR += [datetime]::ParseExact($TicketForm[40].Split(" ")[0], ”yyyyMMdd”, $null).toshortdatestring()
     $EAShortCDR += $TicketForm[12].Split(" ")[1]
     $EAShortCDR += [timespan]::FromSeconds($TicketForm[15])
     $EAShortCDR += $TicketForm[17]
     $EAShortCDR += $TicketForm[36]
- <#
-    foreach ($point in $EAShortCDR) {
-      Write-Host -NoNewline -ForegroundColor Yellow  $point "`t"
-      }
-      Write-Host ""
-      #>
   }
-  
-   "|{0,8}|{1,20}|{2,3}|{3,11}|{4,9}|{5,9}|{6,5}|{7,20}|"  -f $EAShortCDR[0],  $EAShortCDR[1], $EAShortCDR[2] , $EAShortCDR[3], $EAShortCDR[4], $EAShortCDR[5], $EAShortCDR[6], $EAShortCDR[7]
+  "|{0,8}|{1,20}|{2,3}|{3,11}|{4,9}|{5,9}|{6,5}|{7,20}|" -f $EAShortCDR[0], $EAShortCDR[1], $EAShortCDR[2] , $EAShortCDR[3], $EAShortCDR[4], $EAShortCDR[5], $EAShortCDR[6], $EAShortCDR[7]
   $Global:TicketForm[2..($Global:TicketForm.Length)] -join "`t" | Out-File -Append $CDRFile -Encoding string
 }
 #
@@ -267,11 +259,11 @@ Write-Host "Running in $PSScriptRoot"
 #
 if (-not (Test-Path $EALockFile)) {
   New-Item -ItemType File -Path $EALockFile | Out-Null
-  }
-  else {
-    Write-Host -ForegroundColor Red "Found $EALockFile. Looks like script already running or crashed. Exiting."
-    exit $EAScriptRunning
-    }
+}
+else {
+  Write-Host -ForegroundColor Red "Found $EALockFile. Looks like script already running or crashed. Exiting."
+  exit $EAScriptRunning
+}
 #
 
 Write-Debug -Message "This version runs Powershell Version $($PSVersionTable.PSVersion.Major) "
@@ -281,33 +273,33 @@ if ( Test-Path -Path $EAInitFile ) {
   $EAOXEMain = $EAInitParams.MainAddress.CPU
   $EATicketPort = $EAInitParams.MainAddress.Port
   $EACCFolder = $EAInitParams.MainAddress.WorkingDir
-    if ( $EAInitParams.MainAddress.CDRPrint -eq 1 ) {
-      $EALogEnable = $true
+  if ( $EAInitParams.MainAddress.CDRPrint -eq 1 ) {
+    $EALogEnable = $true
   }
-    else {
-      $EALogEnable = $false
-      }
+  else {
+    $EALogEnable = $false
+  }
   if ( $EAInitParams.MainAddress.CDRPrint -eq 1 ) {
     $TicketPrintOut = $true
   }
-    else {
-      $TicketPrintOut = $false
-      }
+  else {
+    $TicketPrintOut = $false
+  }
   if ( $EAInitParams.MainAddress.Debugging -eq 1 ) {
     $DebugPreference = "Continue"
   }
-    else {
+  else {
     $DebugPreference = "SilentlyContinue"
   }
   if ( $EAInitParams.MainAddress.CDRBeep -eq 1 ) {
     $EACDRBeep = $true
-    }
-    else {
+  }
+  else {
     $EACDRBeep = $false
-    }
+  }
   Write-Host "Loaded pararameters from $EAInitFile"
 }
-  else {
+else {
   Write-Host "No $EAInitFile file found. Using default parameters."
 }
 #
@@ -318,7 +310,7 @@ Write-Debug -Message "Host is $EAOXEMain on port $EATicketPort with logging = $L
 $EALogFile = $EACCFolder + $DirSeparator + "log.txt"
 # CDR file
 $CDRFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".cdr"
-$MAOFile = $EACCFolder+ $DirSeparator + $EAOXEMain + ".mao"
+$MAOFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".mao"
 $VoIPFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".voip"
 # Check connection and port
 #
@@ -602,7 +594,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         Write-Debug -Message " $EATestReply sent"
         #        Write-Host -ForegroundColor Green "--- Runtime" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
         $EAKeepAliveReq = $false
-#        Write-Host -NoNewLine "`r Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter Uptime: $($TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss'))" "`r"
+        #        Write-Host -NoNewLine "`r Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter Uptime: $($TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss'))" "`r"
       } 
     }
     "Ticket Info" {
@@ -633,4 +625,4 @@ $Stream.Flush()
 $Client.Close()
 if ( ( Test-Path $EALockFile ) ) {
   Remove-Item -Path  $EALockFile -Force
-  }
+}
