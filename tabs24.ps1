@@ -220,7 +220,7 @@ function ProcessOneTicket() {
     $EAShortCDR += $TicketForm[17]
     $EAShortCDR += $TicketForm[36]
   }
-  "|{0,8}|{1,20}|{2,3}|{3,11}|{4,9}|{5,9}|{6,5}|{7,20}|" -f $EAShortCDR[0], $EAShortCDR[1], $EAShortCDR[2] , $EAShortCDR[3], $EAShortCDR[4], $EAShortCDR[5], $EAShortCDR[6], $EAShortCDR[7]
+  "|{0,8}|{1,20}|{2,4}|{3,11}|{4,9}|{5,9}|{6,5}|{7,20}|" -f $EAShortCDR[0], $EAShortCDR[1], $EAShortCDR[2] , $EAShortCDR[3], $EAShortCDR[4], $EAShortCDR[5], $EAShortCDR[6], $EAShortCDR[7]
   $Global:TicketForm[2..($Global:TicketForm.Length)] -join "`t" | Out-File -Append $CDRFile -Encoding string
 }
 #
@@ -347,7 +347,11 @@ switch ($data.Length) {
       $datastring = [System.BitConverter]::ToString($Rcvbytes[0..($i - 1)]) 
       $datastring | Format-Hex | Out-File   -FilePath $EALogFile -Append
       if ($datastring -eq $MainRole) {
-        Write-Host -ForegroundColor Yellow "Role is Main. Link Established`n"
+        Write-Host -ForegroundColor Yellow "Role is Main. Link Established"
+        Write-Host  "$([char]0x250D)---------------------------------------------------------------------------------------------$([char]0x2511)"
+        "|{0,8}|{1,20}|{2,4}|{3,11}|{4,9}|{5,9}|{6,5}|{7,20}|" -f "Sbs", "External", "Type", "StartDate", "StartTime", "Duration", "TG", "InitialNumber"
+        Write-Host  "$([char]0x2521)---------------------------------------------------------------------------------------------$([char]0x2525)"
+
       }
       else {
         Write-Host -ForegroundColor Red "Role is not Main $datastring `n"
