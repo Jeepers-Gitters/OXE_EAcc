@@ -267,6 +267,7 @@ else {
 #
 
 Write-Debug -Message "This version runs Powershell Version $($PSVersionTable.PSVersion.Major) "
+
 # Check for INI file and set variables
 if ( Test-Path -Path $EAInitFile ) {
   $EAInitParams = Get-IniContent ($EAInitFile)
@@ -489,6 +490,8 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         $data = $BufferBuffer[$StartPointer..($StartPointer + $TicketMessageLength)]
         #
         # convert this record to ASCII, all 00's would be truncated
+        # only works for CDR and MAO tickets as they are printable format
+        # for VoIP tickects it distorts data, e.g. C0 is converted to 3F (?)
         $ProcessTicket = [System.Text.Encoding]::ASCII.GetString($data)
         $EALeftToProcess = $BufferBuffer.Length - $StartPointer
         Write-Debug -Message " $EAIterationCounter Pointer:$StartPointer Left:$EALeftToProcess Length:$($BufferBuffer.Length) "
@@ -538,7 +541,6 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
                   Write-Host $MAOfield[0] $MAOField[1] ":" $MAOField.Count
                 }
               }
-              #            $MAOdata | Out-File -Append $MAOFile
               $MAOCounter++
               $TicketReady = $false
               $StartPointer = $StartPointer + $TicketMessageLength
@@ -546,7 +548,14 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
             }
             $VoIPTicket { 
               #            Write-Debug -Message " VoIP Ticket"
-              $ProcessTicket | Out-File -Append $VoIPFile
+
+#              $ProcessTicket | Out-File -Append $VoIPFile
+              if ( $PSVersionTable.PSVersion.Major -lt 6 ) {
+                Add-Content -Path $VoIPFile -Value $data -Encoding Byte
+                }
+                   else {
+                      Add-Content -Path $VoIPFile -Value $data -AsByteStream
+                      }
               $VoIPCounter++
               $TicketReady = $false
               $StartPointer = $StartPointer + $TicketMessageLength
