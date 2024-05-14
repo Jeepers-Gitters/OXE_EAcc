@@ -549,7 +549,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
             $VoIPTicket { 
               #            Write-Debug -Message " VoIP Ticket"
               if ( $PSVersionTable.PSVersion.Major -lt 6 ) {
-                Add-Content -Path $VoIPFile -Value $data -Encoding Byte
+                Add-Content -Path $VoIPFile -Value $data[4..$data.Length] -Encoding Byte
                 }
                    else {
                       Add-Content -Path $VoIPFile -Value $data -AsByteStream
