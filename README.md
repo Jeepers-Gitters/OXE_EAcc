@@ -6,7 +6,7 @@
 * Written in PowerShell as main purpose is just to save tickets for further processing. For that processing of the files you need another tools.
 * No DNS support, only IP-address of CPU supported
 * No support of spatial redundancy at the moment
-* Writes CDR, MAO and VoIP tickets in files. Just storing files - No processing of VoIP files at the moment
+* Stores received CDR, MAO and VoIP tickets in plain text files. Just storing files - No processing of VoIP files at the moment
 * Tested  on Windows OS's and Ubuntu 22
 # Installation
 ## Windows 
@@ -32,6 +32,7 @@
  * Run script _.\tabs24.ps1_
 ## Linux
  * run _"pwsh"_ then run _".\tabs24.ps1"_ or just run _"pwsh .\tabs24.ps1"_ from Linux CLI
+# Additional information
  * CDRs are stored in files with "MainCPUAddress" as name and with .cdr .mao .voip as extensions. They gets appended on every start of the script.
  * Screen example:
 ![изображение](https://github.com/Jeepers-Gitters/OXE_EAcc/assets/81351542/8ba5cc89-081c-456d-b51f-891ae82c154e)
