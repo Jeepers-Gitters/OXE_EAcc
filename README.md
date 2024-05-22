@@ -12,8 +12,8 @@
 ## Windows 
  Copy _tabs24.ps1_ and _eacc.ini_ files to any folder you like, change parameters in _eacc.ini_ file
 ## Linux
- Install _pwsh_ - see <https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-linux?view=powershell-7.4>
- Copy _tabs24.ps1_ and _eacc.ini_ files to any folder you like, change parameters in _eacc.ini_ file
+ * Install _pwsh_ - see <https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-linux?view=powershell-7.4>
+ * Copy _tabs24.ps1_ and _eacc.ini_ files to any folder you like, change parameters in _eacc.ini_ file
 # Configuration
  Script parameters are configured in eacc.ini file. Names are self-explanatory nevertheless here is the description:
  - CPU: Main CPU address, only IPv4 addresses supported
