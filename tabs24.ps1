@@ -298,7 +298,7 @@ if ( Test-Path -Path $EAInitFile ) {
   else {
     $EACDRBeep = $false
   }
-  Write-Host "Loaded pararameters from $EAInitFile"
+  Write-Host "Loaded parameters from $EAInitFile"
 }
 else {
   Write-Host "No $EAInitFile file found. Using default parameters."
