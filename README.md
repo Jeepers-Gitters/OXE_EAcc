@@ -35,7 +35,7 @@
 # Additional information
  * CDRs are stored in files with "MainCPUAddress" as name and with .cdr .mao .voip as extensions. They gets appended on every start of the script.
  * Screen example:
-![изображение](https://github.com/Jeepers-Gitters/OXE_EAcc/assets/81351542/8ba5cc89-081c-456d-b51f-891ae82c154e)
+![изображение]()
  * Printed CDR fields:
     - "ChargedNumber"
     - "CalledNumber"
@@ -43,12 +43,13 @@
     - "StartDate"
     - "StartTime"
     - "Duration"
+    - "Waiting Duration"
     - "TrunkGroupNumber"
     - "InitialDialledNumber"
 
 # To-Do
  * Ctrl-C processing inside the script for clean break
- * ~~Spatial Redundancy support~~
+ * ~~Spatial Redundancy and switchover support~~
  * Script signing for security
  * Windows Service mode (for automatic restart etc)
  *  ~~Test on Linux~~
