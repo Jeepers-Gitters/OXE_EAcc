@@ -1,7 +1,7 @@
 ﻿
 <#PSScriptInfo
 
-.VERSION 0.8.1
+.VERSION 0.8.9
 
 .GUID d37ef3db-b18e-4d74-a3d4-10b2cc7d1787
 
@@ -149,25 +149,34 @@ function Get-IniContent ($IniFile) {
 
 function CheckOXE {
   Write-Host  -NoNewline "Host $EAOXEMain reachable : "
-		if ( Test-Connection $EAOXEMain -Count 1 -Quiet   ) {
-				Write-Host -ForegroundColor Green "OK"
+  if ( Test-Connection $EAOXEMain -Count 1 -Quiet   ) {
+    Write-Host -ForegroundColor Green "OK"
+    }
+    else {
+      Write-Host -ForegroundColor Red "NOK"
+      if ( $NeedToCheckMainCPU ) {
+        $EAOXEMain = $EAOXE2ndCPUAddress
+        Write-Debug -message "Checking 2nd CPU address"
+        Write-Host  -NoNewline "Host $EAOXE2ndCPUAddress reachable : "
+          if ( Test-Connection $EAOXE2ndCPUAddress -Count 1 -Quiet   ) {
+            Write-Host -ForegroundColor Green "OK"
+            $NeedToCheckMainCPU = $false
+            }
+            else {
+              Write-Host -ForegroundColor Red "NOK"
+              Write-Debug -Message "Exiting. Check network connection."
+              exit $EAErrorHost
+              }
   }
-  else {
-    Write-Host -ForegroundColor Red "NOK"
-    Write-Debug -Message "Exiting. Check network connection."
-    Clear-LockFile
-    exit $EAErrorHost
-  }
-  # (Test-NetConnection $EAOXEMain  -Port $EATicketPort).TcpTestSucceeded
+}
+Write-Host "Call-Server $EAOXEMain is Main"
+# Check connection on 2533 port on Main CPU
   Write-Host -NoNewline "Connection on $EAOXEMain" port "$EATicketPort : "
   $Client = New-Object System.Net.Sockets.TCPClient($EAOXEMain, $EATicketPort)
   $Stream = $Client.GetStream()
   $Client.ReceiveTimeout = 31000;
 
   if ( $Client.Connected ) {
-    #        if ( (Test-NetConnection -ComputerName $EAOXEMain -Port $EATicketPort ).TcpTestSucceeded )
-    #
-    #       $EAConnected = $true
     Write-Host -ForegroundColor Green "OK`n"
   }
   else {
@@ -177,6 +186,7 @@ function CheckOXE {
     exit $EAErrorPort
   }
   $Client.Close()
+  return $EAOXEMain
 }
 
 function Clear-LockFile () {
@@ -266,12 +276,24 @@ else {
 }
 #
 
-Write-Debug -Message "This version runs Powershell Version $($PSVersionTable.PSVersion.Major) "
+Write-Debug -Message "This version runs in Powershell Version $($PSVersionTable.PSVersion.Major) "
 
 # Check for INI file and set variables
 if ( Test-Path -Path $EAInitFile ) {
   $EAInitParams = Get-IniContent ($EAInitFile)
-  $EAOXEMain = $EAInitParams.MainAddress.CPU
+#  $EAOXEMain = $EAInitParams.MainAddress.CPU
+if ( $EAInitParams.MainAddress.CPU1 ) {
+  [ipaddress]$EAOXEMain = $EAInitParams.MainAddress.CPU1
+  }
+# Check for spatial redundancy goes here
+if ( $EAInitParams.MainAddress.CPU2 -eq "" ) {
+  Write-Debug -message "No Duplication CPU-address defined"
+  }
+  else {
+    Write-Debug -message "Two CPU addresses defined"
+    [ipaddress]$EAOXE2ndCPUAddress = $EAInitParams.MainAddress.CPU2
+    $NeedToCheckMainCPU = $true
+    }
   $EATicketPort = $EAInitParams.MainAddress.Port
   $EACCFolder = $EAInitParams.MainAddress.WorkingDir
   if ( $EAInitParams.MainAddress.CDRPrint -eq 1 ) {
@@ -306,8 +328,6 @@ else {
 #
 # Change to Working Directory
 Set-Location -Path $EACCFolder
-Write-Debug -Message "Host is $EAOXEMain on port $EATicketPort with logging = $LogEnable in $EACCFolder"
-#$EALogFile = $EACCFolder + "log.txt"
 $EALogFile = $EACCFolder + $DirSeparator + "log.txt"
 # CDR file
 $CDRFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".cdr"
@@ -315,7 +335,10 @@ $MAOFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".mao"
 $VoIPFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".voip"
 # Check connection and port
 #
-CheckOXE
+
+$EAOXEMain = CheckOXE
+
+Write-Debug -Message "Host is $EAOXEMain on port $EATicketPort with logging = $LogEnable in $EACCFolder"
 # Init Connection
 $Client = New-Object System.Net.Sockets.TCPClient($EAOXEMain, $EATicketPort)
 $Stream = $Client.GetStream()
