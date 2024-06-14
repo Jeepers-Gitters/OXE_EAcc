@@ -5,7 +5,6 @@
 # Notes
 * Written in PowerShell as main purpose is just to save tickets for further processing. For that processing of the files you need another tools.
 * No DNS support, only IP-address of CPU supported
-* No support of spatial redundancy at the moment
 * Stores received CDR, MAO and VoIP tickets in plain text files. Just storing files - No processing of VoIP files at the moment
 * Tested  on Windows OS's and Ubuntu 22
 # Installation
@@ -16,7 +15,8 @@
  Copy _tabs24.ps1_ and _eacc.ini_ files to any folder you like, change parameters in _eacc.ini_ file
 # Configuration
  Script parameters are configured in eacc.ini file. Names are self-explanatory nevertheless here is the description:
- - CPU: Main CPU address, only IPv4 addresses supported
+ - CPU1: Main CPU address, only IPv4 addresses supported
+ - CPU2: Main CPU 2 in case spatial redundancy is used, leave blank if no spatial redundancy
  - Port: Default is 2533. May be needed in case of NATed connection to OXE (Never tried)
  - WorkingDir: The directory on your PC where you want to save tickets files and log. Should have write permissions. As this script runs in PowerShell in Linux there is no need to take care of directory separator ("\\" or "/")
  - Logging: If set to "1" writes log file of received messages. Log file gets overwritten every time this script is run
@@ -48,7 +48,7 @@
 
 # To-Do
  * Ctrl-C processing inside the script for clean break
- * Spatial Redundancy support
+ * ~~Spatial Redundancy support~~
  * Script signing for security
  * Windows Service mode (for automatic restart etc)
  *  ~~Test on Linux~~
