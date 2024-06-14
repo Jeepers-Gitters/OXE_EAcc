@@ -36,7 +36,6 @@ This script uses ALU netaccess protocol for receiving real-time tickets on Ether
 
 #> 
 #Requires -Version 5
-# version 0.8
 #     - add large buffer processing
 #     - remove single message processing and use universal for shorter code
 #     - added TEST_REQ processing in large buffer
@@ -100,7 +99,8 @@ $EAIterationCounter = 0
 $EALeftToProcess = 0 
 $TicketPrintOut = $false
 $EAKeepAliveReq = $false
-[INT32]$EAMessageCounter = 0
+$SpatialConfiguration = $false
+[int]$EAMessageCounter = 0
 $StartMsg = "00-01"
 $MainRole = "50"
 $ThreeBytesAnswer = $StartMsg + "-" + $MainRole
@@ -117,6 +117,18 @@ $FullTestReply = $TestReply + $TestMessage
 # Ini file
 $EAInitFile = $PSScriptRoot + $DirSeparator + "eacc.ini"
 $EALockFile = $PSScriptRoot + $DirSeparator + ".lock"
+
+# Timer for TCP connection
+# for checking
+$TCPReceiveTimeoutCheck = 10000
+# for established connection
+$TCPReceiveTimeoutConnected = 31000
+# Debug preferences
+$DebugPreference = "SilentlyContinue"
+#$DebugPreference = "Continue"
+# Enable for debugging
+#$ErrorActionPreference = "SilentlyContinue"
+#$ErrorActionPreference = "Stop"
 
 
 # thanks to Oliver Lipkau for ini-file processing function
@@ -148,19 +160,22 @@ function Get-IniContent ($IniFile) {
 } 
 
 function CheckOXE {
-  Write-Host  -NoNewline "Host $EAOXEMain reachable : "
-  if ( Test-Connection $EAOXEMain -Count 1 -Quiet   ) {
+  Write-Host  -NoNewline "Host $EAOXECPU1 reachable : "
+  if ( Test-Connection $EAOXECPU1 -Count 1 -Quiet   ) {
     Write-Host -ForegroundColor Green "OK"
+    $EAOXEMain = $EAOXECPU1
+    $EAOXEStby = $EAOXECPU2
     }
     else {
       Write-Host -ForegroundColor Red "NOK"
       if ( $NeedToCheckMainCPU ) {
-        $EAOXEMain = $EAOXE2ndCPUAddress
         Write-Debug -message "Checking 2nd CPU address"
-        Write-Host  -NoNewline "Host $EAOXE2ndCPUAddress reachable : "
-          if ( Test-Connection $EAOXE2ndCPUAddress -Count 1 -Quiet   ) {
+        Write-Host  -NoNewline "Host $EAOXECPU2 reachable : "
+          if ( Test-Connection $EAOXECPU2 -Count 1 -Quiet   ) {
             Write-Host -ForegroundColor Green "OK"
             $NeedToCheckMainCPU = $false
+            $EAOXEMain = $EAOXECPU2
+            $EAOXEStby = $EAOXECPU1
             }
             else {
               Write-Host -ForegroundColor Red "NOK"
@@ -171,10 +186,11 @@ function CheckOXE {
 }
 Write-Host "Call-Server $EAOXEMain is Main"
 # Check connection on 2533 port on Main CPU
+
   Write-Host -NoNewline "Connection on $EAOXEMain" port "$EATicketPort : "
   $Client = New-Object System.Net.Sockets.TCPClient($EAOXEMain, $EATicketPort)
-  $Stream = $Client.GetStream()
-  $Client.ReceiveTimeout = 31000;
+  $Stream = $Client.GetStream() 
+  $Client.ReceiveTimeout = $TCPReceiveTimeoutCheck
 
   if ( $Client.Connected ) {
     Write-Host -ForegroundColor Green "OK`n"
@@ -184,9 +200,9 @@ Write-Host "Call-Server $EAOXEMain is Main"
     Write-Debug -Message "Exiting. Ethernet Account port closed on $($EAOXEMain)."
     Clear-LockFile
     exit $EAErrorPort
-  }
+  } 
   $Client.Close()
-  return $EAOXEMain
+  return $EAOXEMain, $EAOXEStby
 }
 
 function Clear-LockFile () {
@@ -242,8 +258,8 @@ function ProcessOneTicket() {
 [byte[]]$Rcvbytes = 0..4095 | ForEach-Object { 0xFF }
 [Int]$PacketDelay = 250
 $data = $datastring = $NULL
-[Int32]$MAOCounter = 0
-[Int32]$VOIPCounter = 0
+[int]$MAOCounter = 0
+[int]$VOIPCounter = 0
 $TicketReady = $false
 #
 # Errors declaration
@@ -281,9 +297,8 @@ Write-Debug -Message "This version runs in Powershell Version $($PSVersionTable.
 # Check for INI file and set variables
 if ( Test-Path -Path $EAInitFile ) {
   $EAInitParams = Get-IniContent ($EAInitFile)
-#  $EAOXEMain = $EAInitParams.MainAddress.CPU
 if ( $EAInitParams.MainAddress.CPU1 ) {
-  [ipaddress]$EAOXEMain = $EAInitParams.MainAddress.CPU1
+  [ipaddress]$EAOXECPU1 = $EAInitParams.MainAddress.CPU1
   }
 # Check for spatial redundancy goes here
 if ( $EAInitParams.MainAddress.CPU2 -eq "" ) {
@@ -291,8 +306,9 @@ if ( $EAInitParams.MainAddress.CPU2 -eq "" ) {
   }
   else {
     Write-Debug -message "Two CPU addresses defined"
-    [ipaddress]$EAOXE2ndCPUAddress = $EAInitParams.MainAddress.CPU2
+    [ipaddress]$EAOXECPU2 = $EAInitParams.MainAddress.CPU2
     $NeedToCheckMainCPU = $true
+    $SpatialConfiguration = $true
     }
   $EATicketPort = $EAInitParams.MainAddress.Port
   $EACCFolder = $EAInitParams.MainAddress.WorkingDir
@@ -333,16 +349,19 @@ $EALogFile = $EACCFolder + $DirSeparator + "log.txt"
 $CDRFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".cdr"
 $MAOFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".mao"
 $VoIPFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".voip"
+Write-Debug -Message "Host is $EAOXEMain on port $EATicketPort with logging = $LogEnable in $EACCFolder"
 # Check connection and port
 #
+#
+# Loop here to restart in case of switchover
+do {
+$EAOXEMain, $EAOXEStby = CheckOXE
+Write-Debug -message "Returned $EAOXEMain as Main $EAOXEStby as StandBy"
 
-$EAOXEMain = CheckOXE
-
-Write-Debug -Message "Host is $EAOXEMain on port $EATicketPort with logging = $LogEnable in $EACCFolder"
 # Init Connection
 $Client = New-Object System.Net.Sockets.TCPClient($EAOXEMain, $EATicketPort)
 $Stream = $Client.GetStream()
-$Client.ReceiveTimeout = 31000;
+$Client.ReceiveTimeout = $TCPReceiveTimeoutConnected
 $LogEnable = $true
 #
 # Preamble
@@ -651,12 +670,26 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
 #
 # 
 #
-if ( -Not (Get-NetTCPConnection -State Established -RemotePort $EATicketPort -ErrorAction SilentlyContinue) ) {
+#if ( -Not (Get-NetTCPConnection -State Established -RemotePort $EATicketPort -ErrorAction SilentlyContinue) ) {
+if ( -Not (Get-NetTCPConnection -State Established -RemotePort $EATicketPort ) ) {
   Write-Debug -Message "Connection closed from server."
 }
-Write-Debug -Message "Disconnect." "Uptime: " $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss') "Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter"
+$EAUptime = $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
+Write-Debug -Message "Disconnect. Uptime $EAUptime  Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter"
 $Stream.Flush()
 $Client.Close()
+if ( $SpatialConfiguration )  {
+  Write-Debug -Message "Possible CPU switch over from $EAOXEMain to $EAOXEStby"
+  if  ( Test-Connection $EAOXEStby -Count 1 -Quiet   ) {
+    $EAOXEMain = $EAOXEStby
+    Write-Host -ForegroundColor Yellow "New Main CPU $EAOXEMain"
+    Write-Host -ForegroundColor Red "Restarting script!"
+    }
+  }
+#
+# do while switchover
+}
+while ( $SpatialConfiguration )
 if ( ( Test-Path $EALockFile ) ) {
   Remove-Item -Path  $EALockFile -Force
 }
