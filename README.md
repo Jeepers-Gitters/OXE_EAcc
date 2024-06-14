@@ -6,6 +6,7 @@
 * Written in PowerShell as main purpose is just to save tickets for further processing. For that processing of the files you need another tools.
 * No DNS support, only IP-address of CPU supported
 * Stores received CDR, MAO and VoIP tickets in plain text files. Just storing files - No processing of VoIP files at the moment
+* Tested on Powershell 5 and Powershell 7.1
 * Tested  on Windows OS's and Ubuntu 22
 # Installation
 ## Windows 
