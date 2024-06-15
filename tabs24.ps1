@@ -75,7 +75,8 @@ Param(
   [Switch] $EALogEnable 
 )
 
-
+# Counter for main loop reenter (switchovers, e.g.)
+$StartCounter = 0
 $TicketFields = @(4, 5, 30, 30, 20, 10, 16, 5, 20, 30, 2, 1, 17, 5, 10, 10, 5, 5, 5, 1, 16, 7, 1, 2, 10, 5, 40, 40, 10, 10, 10, 10, 1, 2, 2, 2, 30, 5, 10, 1, 17, 30, 5, 5, 5, 5, 5, 6, 6)
 $TicketMessageLength = 772
 $FieldsNames = @("TicketLabel", "TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
@@ -184,10 +185,14 @@ function CheckOXE {
               exit $EAErrorHost
               }
   }
+  else {
+    Write-Host -ForegroundColor Red "NOK"
+    Write-Debug -Message "Exiting. Check network connection."
+    exit $EAErrorHost
+    }
 }
 Write-Host "Call-Server $EAOXEMain is Main"
-# Check connection on 2533 port on Main CPU
-
+# if ping is OK then check connection on port 2533 on Main CPU
   Write-Host -NoNewline "Connection on $EAOXEMain" port "$EATicketPort : "
   $Client = New-Object System.Net.Sockets.TCPClient($EAOXEMain, $EATicketPort)
   $Stream = $Client.GetStream() 
@@ -283,15 +288,7 @@ $EAScriptRunning = 5
 Write-Host -ForegroundColor Yellow "Yet Another Ethernet Accounting Ticket Loader Script by Jeepers-Gitters@github.com. ✓ TABS2024® ©2024" 
 # Check location where script runs
 Write-Host "Running in $PSScriptRoot"
-# Check if already runnung
-#
-if (-not (Test-Path $EALockFile)) {
-  New-Item -ItemType File -Path $EALockFile | Out-Null
-}
-else {
-  Write-Host -ForegroundColor Red "Found $EALockFile. Looks like script already running or crashed. Exiting."
-  exit $EAScriptRunning
-}
+
 #
 
 Write-Debug -Message "This version runs in Powershell Version $($PSVersionTable.PSVersion.Major) "
@@ -352,11 +349,19 @@ $CDRFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".cdr"
 $MAOFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".mao"
 $VoIPFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".voip"
 Write-Debug -Message "Host is $EAOXEMain on port $EATicketPort with logging = $LogEnable in $EACCFolder"
-# Check connection and port
 #
+# Check if already runnung
 #
+if (-not (Test-Path $EALockFile)) {
+  New-Item -ItemType File -Path $EALockFile | Out-Null
+}
+else {
+  Write-Host -ForegroundColor Red "Found $EALockFile. Looks like script already running or crashed. Exiting."
+  exit $EAScriptRunning
+}
 # Loop here to restart in case of switchover
 do {
+Write-Debug "Enter main loop $StartCounter"
 $EAOXEMain, $EAOXEStby = CheckOXE
 Write-Debug -message "Returned $EAOXEMain as Main $EAOXEStby as StandBy"
 
@@ -689,7 +694,10 @@ if ( $SpatialConfiguration )  {
   }
 #
 # do while switchover
+  $StartCounter++
 }
+#
+# Actually check $SpatialConfiguration is excessive here
 while ( $SpatialConfiguration -or $CPUSwitchover )
 
 Write-Debug -Message "Disconnect from $EAOXEMain. Uptime $EAUptime  Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter"
