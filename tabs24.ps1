@@ -100,6 +100,7 @@ $EALeftToProcess = 0
 $TicketPrintOut = $false
 $EAKeepAliveReq = $false
 $SpatialConfiguration = $false
+$CPUSwitchover = $true
 [int]$EAMessageCounter = 0
 $StartMsg = "00-01"
 $MainRole = "50"
@@ -676,7 +677,6 @@ if ( -Not (Get-NetTCPConnection -State Established -RemotePort $EATicketPort ) )
   Write-Debug -Message "Connection closed from server."
 }
 $EAUptime = $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
-Write-Debug -Message "Disconnect. Uptime $EAUptime  Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter"
 $Stream.Flush()
 $Client.Close()
 if ( $SpatialConfiguration )  {
@@ -690,7 +690,11 @@ if ( $SpatialConfiguration )  {
 #
 # do while switchover
 }
-while ( $SpatialConfiguration )
+while ( $SpatialConfiguration -or $CPUSwitchover )
+
+Write-Debug -Message "Disconnect from $EAOXEMain. Uptime $EAUptime  Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter"
 if ( ( Test-Path $EALockFile ) ) {
   Remove-Item -Path  $EALockFile -Force
+  Write-Host "Deleting Lock file."
 }
+Write-Host "Done."
