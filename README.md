@@ -2,7 +2,6 @@
 [![Github All Releases](https://img.shields.io/github/downloads/Jeepers-Gitters/OXE_EAcc/total.svg)]()
 # OXE_EAcc
  Alcatel-Lucent OmniPCX Enterprise PABX Ethernet Real-Time accounting tickets Processor script written in PowerShell
-# Notes
 * Written in PowerShell as main purpose is just to save tickets for further processing. For that processing of the files you need another tools.
 * No DNS support, only IP-address of CPU supported
 * Stores received CDR, MAO and VoIP tickets in plain text files. Just storing files - No processing of VoIP files at the moment
@@ -37,7 +36,7 @@
  * CDRs are stored in files with "MainCPUAddress" as name and with .cdr .mao .voip as extensions. They gets appended on every start of the script.
  * Screen example:
 ![изображение](https://github.com/Jeepers-Gitters/OXE_EAcc/blob/01edf063fa7f6bb095ea26283e51f405a9fd0146/163.jpg)
- * Printed CDR fields:
+ * Printed CDR fields. Check call_types.txt for full description.
     - "ChargedNumber"
     - "CalledNumber"
     - "CallType"
@@ -47,13 +46,15 @@
     - "Waiting Duration"
     - "TrunkGroupNumber"
     - "InitialDialledNumber"
-
+# Notes
+ * I noticed that in single CPU configuration sending of tickets starts after a couple of minutes after proper connection initiakization. Just wait for tickets to appear.. In twin CPU configuration there is no such problem.
+ * Only one client can receive tickets on Ethernet so this script uses .lock file ($EALockFile) for check whether it's already running. If script was stopped with Ctrl-C this file is not deleted. To restart script just delete $EALockFile.  
 # To-Do
  * Ctrl-C processing inside the script for clean break
- * ~~Spatial Redundancy and switchover support~~
+ * ~~Spatial Redundancy and switchover support~~ Done
  * Script signing for security
  * Windows Service mode (for automatic restart etc)
- *  ~~Test on Linux~~
+ *  ~~Test on Linux~~ Done
  *  Separate files for each day, folders for months
 # Disclaimer
  This script is distributed "AS IS". Use it at your own risk. No immediate bug correction. no additional feature implementation guaranteed. 
