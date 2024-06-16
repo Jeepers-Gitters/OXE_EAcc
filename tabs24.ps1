@@ -126,10 +126,10 @@ $TCPReceiveTimeoutCheck = 10000
 # for established connection
 $TCPReceiveTimeoutConnected = 31000
 # Debug preferences
-$DebugPreference = "SilentlyContinue"
-#$DebugPreference = "Continue"
+#$DebugPreference = "SilentlyContinue"
+$DebugPreference = "Continue"
 # Enable for debugging
-#$ErrorActionPreference = "SilentlyContinue"
+$ErrorActionPreference = "SilentlyContinue"
 #$ErrorActionPreference = "Stop"
 
 
@@ -181,13 +181,13 @@ function CheckOXE {
             }
             else {
               Write-Host -ForegroundColor Red "NOK"
-              Write-Debug -Message "Exiting. Check network connection."
+              Write-Host "No connection to the host. Exiting."
               exit $EAErrorHost
               }
   }
   else {
-    Write-Host -ForegroundColor Red "NOK"
-    Write-Debug -Message "Exiting. Check network connection."
+#    Write-Host -ForegroundColor Red "NOK"
+    Write-Host "No connection to the host. Exiting."
     exit $EAErrorHost
     }
 }
@@ -281,7 +281,11 @@ $EAErrorBytes = 3
 $EAErrorNotMain = 4
 # Script already running
 $EAScriptRunning = 5
-
+# Ctrl-C pressed
+$UserCtrlCPressed = 6
+#
+[console]::TreatControlCAsInput = $true
+#
 # Start-Transcript -Path Computer.log
 # Print banner
 # Here we go
@@ -293,21 +297,23 @@ Write-Host "Running in $PSScriptRoot"
 
 Write-Debug -Message "This version runs in Powershell Version $($PSVersionTable.PSVersion.Major) "
 
-# Check for INI file and set variables
+# Check for INI file and set variables from it if exists
 if ( Test-Path -Path $EAInitFile ) {
   $EAInitParams = Get-IniContent ($EAInitFile)
 if ( $EAInitParams.MainAddress.CPU1 ) {
   [ipaddress]$EAOXECPU1 = $EAInitParams.MainAddress.CPU1
+  Write-Debug -Message "1st CPU defined $EAOXECPU1"
   }
 # Check for spatial redundancy goes here
-if ( $EAInitParams.MainAddress.CPU2 -eq "" ) {
-  Write-Debug -message "No Duplication CPU-address defined"
-  }
-  else {
-    Write-Debug -message "Two CPU addresses defined"
+#if ( $EAInitParams.MainAddress.CPU2 -eq "" ) {
+if ( $EAInitParams.MainAddress.CPU2 ) {
     [ipaddress]$EAOXECPU2 = $EAInitParams.MainAddress.CPU2
+    Write-Debug -Message "2nd CPU defined $EAOXECPU2"
     $NeedToCheckMainCPU = $true
     $SpatialConfiguration = $true
+  }
+  else {
+    Write-Debug -message "No Duplication CPU-address defined"
     }
   $EATicketPort = $EAInitParams.MainAddress.Port
   $EACCFolder = $EAInitParams.MainAddress.WorkingDir
@@ -348,7 +354,6 @@ $EALogFile = $EACCFolder + $DirSeparator + "log.txt"
 $CDRFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".cdr"
 $MAOFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".mao"
 $VoIPFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".voip"
-Write-Debug -Message "Host is $EAOXEMain on port $EATicketPort with logging = $LogEnable in $EACCFolder"
 #
 # Check if already runnung
 #
@@ -669,10 +674,19 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
       }
       else {
         Write-Debug -Message "Buffer processing.."
-
       }
     }
   }
+  If ($Host.UI.RawUI.KeyAvailable -and ($Key = $Host.UI.RawUI.ReadKey("AllowCtrlC,NoEcho,IncludeKeyUp"))) {
+    If ([Int]$Key.Character -eq 3) {
+      Write-Host ""
+      Write-Host "CTRL-C pressed. Stopping script"
+      $Stream.Flush()
+      $Client.Close()
+      Clear-LockFile
+      exit $UserCtrlCPressed
+      }
+    }
 }
 #
 # 
@@ -694,6 +708,8 @@ if ( $SpatialConfiguration )  {
   }
 #
 # do while switchover
+# wait for 10 seconds for switchover just to settle things down
+  Start-Sleep -Seconds 10
   $StartCounter++
 }
 #
