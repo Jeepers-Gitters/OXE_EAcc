@@ -1,7 +1,7 @@
 ﻿
 <#PSScriptInfo
 
-.VERSION 0.8.9
+.VERSION 0.9
 
 .GUID d37ef3db-b18e-4d74-a3d4-10b2cc7d1787
 
@@ -182,12 +182,14 @@ function CheckOXE {
             else {
               Write-Host -ForegroundColor Red "NOK"
               Write-Host "No connection to the host. Exiting."
+              Clear-LockFile
               exit $EAErrorHost
               }
   }
   else {
 #    Write-Host -ForegroundColor Red "NOK"
     Write-Host "No connection to the host. Exiting."
+    Clear-LockFile
     exit $EAErrorHost
     }
 }
@@ -282,7 +284,9 @@ $EAErrorNotMain = 4
 # Script already running
 $EAScriptRunning = 5
 # Ctrl-C pressed
-$UserCtrlCPressed = 6
+$EAUserCtrlCPressed = 6
+# Wrong data received
+$EAWrongDataRcvd = 7
 #
 [console]::TreatControlCAsInput = $true
 #
@@ -294,12 +298,16 @@ Write-Host -ForegroundColor Yellow "Yet Another Ethernet Accounting Ticket Loade
 Write-Host "Running in $PSScriptRoot"
 
 #
-
-Write-Debug -Message "This version runs in Powershell Version $($PSVersionTable.PSVersion.Major) "
-
+# Write-Debug -Message "This version runs in Powershell Version $($PSVersionTable.PSVersion.Major) "
 # Check for INI file and set variables from it if exists
 if ( Test-Path -Path $EAInitFile ) {
   $EAInitParams = Get-IniContent ($EAInitFile)
+  if ( $EAInitParams.MainAddress.Debugging -eq 1 ) {
+    $DebugPreference = "Continue"
+  }
+  else {
+    $DebugPreference = "SilentlyContinue"
+  }
 if ( $EAInitParams.MainAddress.CPU1 ) {
   [ipaddress]$EAOXECPU1 = $EAInitParams.MainAddress.CPU1
   Write-Debug -Message "1st CPU defined $EAOXECPU1"
@@ -328,12 +336,6 @@ if ( $EAInitParams.MainAddress.CPU2 ) {
   }
   else {
     $TicketPrintOut = $false
-  }
-  if ( $EAInitParams.MainAddress.Debugging -eq 1 ) {
-    $DebugPreference = "Continue"
-  }
-  else {
-    $DebugPreference = "SilentlyContinue"
   }
   if ( $EAInitParams.MainAddress.CDRBeep -eq 1 ) {
     $EACDRBeep = $true
@@ -536,7 +538,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
           }
           default {
             Write-Host -ForegroundColor Red "Wrong data...Check logs. $datastring "
-            exit
+            exit $EAWrongDataRcvd
           }
         }
         #
@@ -684,7 +686,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
       $Stream.Flush()
       $Client.Close()
       Clear-LockFile
-      exit $UserCtrlCPressed
+      exit $EAUserCtrlCPressed
       }
     }
 }
