@@ -49,7 +49,8 @@
 # Notes
  * I noticed that in single CPU configuration sending of tickets starts after a couple of minutes after proper connection initialization. Just wait for tickets to appear.. In twin CPU configuration there is no such problem.
  * Only one client can receive tickets on Ethernet so this script uses .lock file ($EALockFile) for check whether it's already running.
- * After Ctrl-C was pressed it takes some time to return to command prompt - up to 30 seconds.  
+ * After Ctrl-C was pressed it takes some time to return to command prompt - up to 30 seconds.
+ * For questions you could use "Discussion" button here and create a topic or use already existing one.
 # To-Do
  * ~~Ctrl-C processing inside the script for clean break~~ Done
  * ~~Spatial Redundancy and switchover support~~ Done
@@ -58,5 +59,5 @@
  *  ~~Test on Linux~~ Done
  *  Separate files for each day, folders for months
 # Disclaimer
- This script is distributed "AS IS". Use it at your own risk. No immediate bug correction. no additional feature implementation guaranteed. 
+ This script is distributed "AS IS". Use it at your own risk. No immediate bug correction. no additional feature implementation guaranteed.
  
