@@ -48,7 +48,8 @@
     - "InitialDialledNumber"
 # Notes
  * I noticed that in single CPU configuration sending of tickets starts after a couple of minutes after proper connection initiakization. Just wait for tickets to appear.. In twin CPU configuration there is no such problem.
- * Only one client can receive tickets on Ethernet so this script uses .lock file ($EALockFile) for check whether it's already running. If script was stopped with Ctrl-C this file is not deleted. To restart script just delete $EALockFile.  
+ * Only one client can receive tickets on Ethernet so this script uses .lock file ($EALockFile) for check whether it's already running. If script was stopped with Ctrl-C this file is not deleted. To restart script just delete $EALockFile.
+ * After Ctrl-C was pressed it takes some time to return to command prompt - up to 30 seconds.  
 # To-Do
  * ~~Ctrl-C processing inside the script for clean break~~ Done
  * ~~Spatial Redundancy and switchover support~~ Done
