@@ -36,31 +36,6 @@ This script uses ALU netaccess protocol for receiving real-time tickets on Ether
 
 #> 
 #Requires -Version 5
-#     - add large buffer processing
-#     - remove single message processing and use universal for shorter code
-#     - added TEST_REQ processing in large buffer
-#     - change reply to TEST_REQ handling
-#     - some messages (Write-Host) are commented out to speed up processing
-#     - added VoIP tickets saving (needs correction)
-#     - TEST_REQ handling corrected  (in the middle of buffer)
-#     - TEST_REQ handling corrected  (at the end of the buffer)
-#     ? Check for TEST_REQ at the start of bueffer needed when 00 08 sent separately
-#     - "Unknown ticket type" when StartPoiner is equal BufferBuffer.Length.
-#     - Reply to TEST_REQ with one message $FullTestReply not two consecutive messages
-#     ? Check with Stand-by CPU address and with physical main CPU address
-#     ? Send an ACK to every ticket
-#     - added ini file loading
-#     - iteration counter reset on new buffer
-#     ? add return values to CheckOXE function
-#     - change EAMessageCounter to received buffers
-#     - change Write-Host to Write-Debug + added ini file flag for debug
-#     - corrected INI file definition
-#     - added check for PS v.7
-#     - merge v.5 and v.7
-#     - added CDR printout configuration parameter + short CDR printout
-#     - added Beep configuration in eacc.ini
-#     - added .lock file check
-#     - added CallType to CDR printout
 
 Param(
   [Alias ("addr", "main")]
@@ -75,12 +50,17 @@ Param(
   [Switch] $EALogEnable 
 )
 
-# Counter for main loop reenter (switchovers, e.g.)
+# Counter for main loop reenters (switchovers, e.g.)
 $StartCounter = 0
+# This data is generated from uncompressed TAX*.DAT file header. Could be extracted with this line from any file
+# cp /usr4/account/TAXBAWKO.DAT . ; mv TAXBAWKO.DAT TAXBAWKO.Z |  compress -d -c TAXBAWKO.Z | head -n 1 |  tr -d "#" | awk '{ORS=NR%4?",":"\n"}1' RS=, | tr "," "\t" > header.dat
 $TicketFields = @(4, 5, 30, 30, 20, 10, 16, 5, 20, 30, 2, 1, 17, 5, 10, 10, 5, 5, 5, 1, 16, 7, 1, 2, 10, 5, 40, 40, 10, 10, 10, 10, 1, 2, 2, 2, 30, 5, 10, 1, 17, 30, 5, 5, 5, 5, 5, 6, 6)
-$TicketMessageLength = 772
 $FieldsNames = @("TicketLabel", "TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
+# Application level ticket length
+$TicketMessageLength = 772
+# Abbreviations for call types
 $EACallTypes = @("OC", "OCP", "PN", "LN", "IC", "ICP", "UN", "PO", "POP", "IP", "PIP", "11", "12", "PIC", "LL", "LT")
+#
 $TicketMark = "01-00"
 $TestMark = "00-08"
 $BufferTest = "00-08-54-45"
@@ -91,25 +71,37 @@ $VoIPTicket = "01-00-07-00"
 $TicketReadyMark = "03-04"
 $EATestRequest = "TEST_REQ"
 $EATestReply = "TEST_REP"
-$TicketTruncated = $false
-$Global:CDRCounter = 0
-$Global:TicketForm = @()
-$BufferBuffer = @()
-$StartPointer = 0
-$EAIterationCounter = 0 
-$EALeftToProcess = 0 
-$TicketPrintOut = $false
-$EAKeepAliveReq = $false
-$SpatialConfiguration = $false
-$CPUSwitchover = $true
-[int]$EAMessageCounter = 0
 $StartMsg = "00-01"
 $MainRole = "50"
 $ThreeBytesAnswer = $StartMsg + "-" + $MainRole
 $FiveBytesAnswer = $ThreeBytesAnswer + "-" + $TicketReadyMark
-# Linux and Windows compatibility
+#
+$TicketTruncated = $false
+$TicketReady = $false
+$Global:CDRCounter = 0
+[int]$MAOCounter = 0
+[int]$VOIPCounter = 0
+$Global:TicketForm = @()
+# Here we load all what is received from Ethernet
+$BufferBuffer = @()
+#
+$StartPointer = 0
+#
+$EAIterationCounter = 0 
+# Bytes left in buffer after an iteration
+$EALeftToProcess = 0 
+# Should ticket info be printed on console
+$TicketPrintOut = $false
+# Was Keep-Alive request received
+$EAKeepAliveReq = $false
+#
+$SpatialConfiguration = $false
+#
+$CPUSwitchover = $true
+[int]$EAMessageCounter = 0
+# Get Linux and Windows compatibility directiry separator
 $DirSeparator = [IO.Path]::DirectorySeparatorChar
-
+# Messages to send
 [Byte[]]$InitMessage = 0x00, 0x01, 0x53
 [Byte[]]$StartMessage = 0x00, 0x02, 0x00, 0x00
 [Byte[]]$ACKMessage = 0x03, 0x04
@@ -131,11 +123,9 @@ $DebugPreference = "Continue"
 # Enable for debugging
 $ErrorActionPreference = "SilentlyContinue"
 #$ErrorActionPreference = "Stop"
-
-
 # thanks to Oliver Lipkau for ini-file processing function
 # https://devblogs.microsoft.com/scripting/use-powershell-to-work-with-any-ini-file/
-# 
+# As output we receive hasharray of parameters defined in .ini file
 function Get-IniContent ($IniFile) {
   $EAccini = @{}
   switch -regex -file $IniFile {
@@ -161,6 +151,7 @@ function Get-IniContent ($IniFile) {
   return $EAccini
 } 
 
+# Name is not complying with the naming rules for PowerShell. Correct later
 function CheckOXE {
   Write-Host  -NoNewline "Host $EAOXECPU1 reachable : "
   if ( Test-Connection $EAOXECPU1 -Count 1 -Quiet   ) {
@@ -171,7 +162,7 @@ function CheckOXE {
     else {
       Write-Host -ForegroundColor Red "NOK"
       if ( $NeedToCheckMainCPU ) {
-        Write-Debug -message "Checking 2nd CPU address"
+        Write-Debug -Message "Checking 2nd CPU address"
         Write-Host  -NoNewline "Host $EAOXECPU2 reachable : "
           if ( Test-Connection $EAOXECPU2 -Count 1 -Quiet   ) {
             Write-Host -ForegroundColor Green "OK"
@@ -212,7 +203,7 @@ Write-Host "Call-Server $EAOXEMain is Main"
   $Client.Close()
   return $EAOXEMain, $EAOXEStby
 }
-
+# This function is used in case of exit so it's just could modified to Exit function with return code parameter. Correct later
 function Clear-LockFile () {
   if ( ( Test-Path $EALockFile ) ) {
     Remove-Item -Path  $EALockFile -Force
@@ -228,8 +219,6 @@ function ProcessOneTicket() {
   )
   $Global:CDRCounter++
   "Ticket Proccessed $Global:CDRCounter, $MAOCounter, $VOIPCounter" | Out-File   -FilePath $EALogFile -Append
-
-
   # Display full ticket contents and trim spaces
   # Save one line in a file
   for ($f = 2; $f -lt $Global:TicketForm.Length; $f++) {
@@ -237,13 +226,13 @@ function ProcessOneTicket() {
   }
   if ( $TicketPrintOut ) {
     #
-    # Full non-processed ticket printout
+    # Full non-processed ticket printout (in case you need it) mainly used for debugging
     #    Write-Host "--- Ticket " $Global:CDRCounter
     #    for ($f = 2; $f -lt $Global:TicketForm.Length; $f++) {
     #      Write-Host $FieldsNames[$f]":" $Global:TicketForm[$f]
     #    }
     #
-    # Short processed printout
+    # Short processed printout on console
     $EAShortCDR = @()
     $EAShortCDR += $TicketForm[3]
     $EAShortCDR += $TicketForm[2]
@@ -255,6 +244,7 @@ function ProcessOneTicket() {
     $EAShortCDR += $TicketForm[17]
     $EAShortCDR += $TicketForm[36]
   }
+  # Format of fields to CDR printout. Also could be generated by script.
   "|{0,8}|{1,20}|{2,4}|{3,11}|{4,9}|{5,9}|{6,9}|{7,5}|{8,20}|" -f $EAShortCDR[0], $EAShortCDR[1], $EAShortCDR[2] , $EAShortCDR[3], $EAShortCDR[4], $EAShortCDR[5], $EAShortCDR[6], $EAShortCDR[7], $EAShortCDR[8]
   $Global:TicketForm[2..($Global:TicketForm.Length)] -join "`t" | Out-File -Append $CDRFile -Encoding string
 }
@@ -266,10 +256,8 @@ function ProcessOneTicket() {
 # the larger the buffer the longer processing concerning TEST_REQ response. Leave to 4096.
 [byte[]]$Rcvbytes = 0..4095 | ForEach-Object { 0xFF }
 [Int]$PacketDelay = 250
+# Intermediary buffer for processing
 $data = $datastring = $NULL
-[int]$MAOCounter = 0
-[int]$VOIPCounter = 0
-$TicketReady = $false
 #
 # Errors declaration
 #
@@ -288,15 +276,15 @@ $EAUserCtrlCPressed = 6
 # Wrong data received
 $EAWrongDataRcvd = 7
 #
+# set it for Ctrl-C hook
 [console]::TreatControlCAsInput = $true
 #
 # Start-Transcript -Path Computer.log
-# Print banner
 # Here we go
-Write-Host -ForegroundColor Yellow "Yet Another Ethernet Accounting Ticket Loader Script by Jeepers-Gitters@github.com. ✓ TABS2024® ©2024" 
+# Print banner
+Write-Host -ForegroundColor Yellow "Yet Another Ethernet Accounting Ticket Loader Script by Jeepers-Gitters@github.com. TABS2024® ©2024" 
 # Check location where script runs
 Write-Host "Running in $PSScriptRoot"
-
 #
 # Write-Debug -Message "This version runs in Powershell Version $($PSVersionTable.PSVersion.Major) "
 # Check for INI file and set variables from it if exists
@@ -312,8 +300,7 @@ if ( $EAInitParams.MainAddress.CPU1 ) {
   [ipaddress]$EAOXECPU1 = $EAInitParams.MainAddress.CPU1
   Write-Debug -Message "1st CPU defined $EAOXECPU1"
   }
-# Check for spatial redundancy goes here
-#if ( $EAInitParams.MainAddress.CPU2 -eq "" ) {
+# Check for CPU redundancy goes here
 if ( $EAInitParams.MainAddress.CPU2 ) {
     [ipaddress]$EAOXECPU2 = $EAInitParams.MainAddress.CPU2
     Write-Debug -Message "2nd CPU defined $EAOXECPU2"
@@ -321,7 +308,7 @@ if ( $EAInitParams.MainAddress.CPU2 ) {
     $SpatialConfiguration = $true
   }
   else {
-    Write-Debug -message "No Duplication CPU-address defined"
+    Write-Debug -Message "No Duplication CPU-address defined"
     }
   $EATicketPort = $EAInitParams.MainAddress.Port
   $EACCFolder = $EAInitParams.MainAddress.WorkingDir
@@ -352,9 +339,11 @@ else {
 # Change to Working Directory
 Set-Location -Path $EACCFolder
 $EALogFile = $EACCFolder + $DirSeparator + "log.txt"
-# CDR file
+# CDR ticket file
 $CDRFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".cdr"
+# MAO tickets file
 $MAOFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".mao"
+# VoIP quality tickets file
 $VoIPFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".voip"
 #
 # Check if already runnung
@@ -366,17 +355,16 @@ else {
   Write-Host -ForegroundColor Red "Found $EALockFile. Looks like script already running or crashed. Exiting."
   exit $EAScriptRunning
 }
-# Loop here to restart in case of switchover
+# Re-enter here to restart in case of switchover
 do {
-Write-Debug "Enter main loop $StartCounter"
+Write-Debug -Message "Enter main loop $StartCounter"
+# Get CPU addresses from CheckOXE
 $EAOXEMain, $EAOXEStby = CheckOXE
-Write-Debug -message "Returned $EAOXEMain as Main $EAOXEStby as StandBy"
-
+Write-Debug -Message "Returned $EAOXEMain as Main $EAOXEStby as StandBy"
 # Init Connection
 $Client = New-Object System.Net.Sockets.TCPClient($EAOXEMain, $EATicketPort)
 $Stream = $Client.GetStream()
 $Client.ReceiveTimeout = $TCPReceiveTimeoutConnected
-$LogEnable = $true
 #
 # Preamble
 #
@@ -386,17 +374,14 @@ if ( $LogEnable ) {
 }
 $Stream.Write($InitMessage, 0, $InitMessage.Length)
 $EAMessageCounter++
-
-#$reader = New-Object System.IO.StreamReader($Stream)
 $i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)  
 $data = [System.BitConverter]::ToString($i)
 $datastring = [System.BitConverter]::ToString($Rcvbytes[0..($i - 1)])
 $datastring | Format-Hex | Out-File   -FilePath $EALogFile -Append
-Write-Debug "$EAMessageCounter. Received $($data.Length) bytes : $datastring"
+Write-Debug -Message "$EAMessageCounter. Received $($data.Length) bytes : $datastring"
 
 switch ($data.Length) {
   2 {
-    #            Write-Host -NoNewLine "Got 2 bytes "
     if ($datastring -eq $StartMsg) {
       Write-Host -ForegroundColor Yellow "Start sequence reply received, waiting for role..."
       $i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)
@@ -431,12 +416,13 @@ switch ($data.Length) {
     if ($datastring -eq $FiveBytesAnswer) {
       Write-Host -ForegroundColor Yellow "Start sequence reply received, waiting for role..."
       Write-Host -ForegroundColor Yellow "Role is Main. Link Established`n"
-      Write-Host -ForegroundColor Yellow "Getting ticket."
     }
   }
 
   default { 
     Write-Host "Too many bytes received."
+    $Stream.Flush()
+    $Client.Close()
     Clear-LockFile
     exit $EAErrorBytes 
   }
@@ -476,7 +462,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
     # Single accounting ticket is of fixed size 772 bytes
     # Actually less (528) the rest is padded with "00"
     # MAO ticket is variable size but "packet" is still 772 bytes
-    # If all types of tickets are send (mao, cdr, voip) then largely they are send inlarge buffers
+    # If all types of tickets are send (mao, cdr, voip) then largely they are send in large buffers
     #
     # Buffer processing
     #
@@ -484,7 +470,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
     default {
       #$datastring = [System.Text.Encoding]::ASCII.GetString($data)
       $BufferBuffer = $datastring
-      Write-Debug  "Read Buffer: $($BufferBuffer.Length)"
+      Write-Debug  -Message "Read Buffer: $($BufferBuffer.Length)"
       $StartPointer = 0
       $EAIterationCounter = 0
       $EALeftToProcess = $BufferBuffer.Length - $StartPointer
@@ -507,7 +493,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
       if ( $TicketTruncated ) {
         #        $BufferBuffer = $TruncPart1 + $data
         $BufferBuffer = $TruncPart1 + $datastring
-        Write-Debug "Appended data from previous packets."
+        Write-Debug -Message "Appended data from previous packets."
         $TicketTruncated = $false
         $TicketReady = $true
       }
@@ -693,8 +679,8 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
 #
 # 
 #
-#if ( -Not (Get-NetTCPConnection -State Established -RemotePort $EATicketPort -ErrorAction SilentlyContinue) ) {
-if ( -Not (Get-NetTCPConnection -State Established -RemotePort $EATicketPort ) ) {
+if ( -Not (Get-NetTCPConnection -State Established -RemotePort $EATicketPort -ErrorAction SilentlyContinue) ) {
+#if ( -Not (Get-NetTCPConnection -State Established -RemotePort $EATicketPort ) ) {
   Write-Debug -Message "Connection closed from server."
 }
 $EAUptime = $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
@@ -719,8 +705,5 @@ if ( $SpatialConfiguration )  {
 while ( $SpatialConfiguration -or $CPUSwitchover )
 
 Write-Debug -Message "Disconnect from $EAOXEMain. Uptime $EAUptime  Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter"
-if ( ( Test-Path $EALockFile ) ) {
-  Remove-Item -Path  $EALockFile -Force
-  Write-Host "Deleting Lock file."
-}
+Clear-LockFile
 Write-Host "Done."
