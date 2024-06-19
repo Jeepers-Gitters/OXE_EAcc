@@ -36,7 +36,7 @@
  * CDRs are stored in files with "MainCPUAddress" as name and with .cdr .mao .voip as extensions. They gets appended on every start of the script.
  * Screen example:
 ![изображение](https://github.com/Jeepers-Gitters/OXE_EAcc/blob/01edf063fa7f6bb095ea26283e51f405a9fd0146/163.jpg)
- * Printed CDR fields. Check call_types.txt [call_types.txt](https://github.com/Jeepers-Gitters/OXE_EAcc/blob/main/call_types.txt) for full description.
+ * Printed CDR fields. Check [call_types.txt](https://github.com/Jeepers-Gitters/OXE_EAcc/blob/main/call_types.txt) for full description.
     - "ChargedNumber"
     - "CalledNumber"
     - "CallType"
@@ -47,15 +47,17 @@
     - "TrunkGroupNumber"
     - "InitialDialledNumber"
 # Notes
- * I noticed that in single CPU configuration sending of tickets starts after a couple of minutes after proper connection initiakization. Just wait for tickets to appear.. In twin CPU configuration there is no such problem.
- * Only one client can receive tickets on Ethernet so this script uses .lock file ($EALockFile) for check whether it's already running. If script was stopped with Ctrl-C this file is not deleted. To restart script just delete $EALockFile.  
+ * I noticed that in single CPU configuration sending of tickets starts after a couple of minutes after proper connection initialization. Just wait for tickets to appear.. In twin CPU configuration there is no such problem.
+ * Only one client can receive tickets on Ethernet so this script uses .lock file ($EALockFile) for check whether it's already running.
+ * After Ctrl-C was pressed it takes some time to return to command prompt - up to 30 seconds.
+ * For questions you could use "Discussion" button here and create a topic or use already existing one.
 # To-Do
- * Ctrl-C processing inside the script for clean break
+ * ~~Ctrl-C processing inside the script for clean break~~ Done
  * ~~Spatial Redundancy and switchover support~~ Done
  * Script signing for security
  * Windows Service mode (for automatic restart etc)
  *  ~~Test on Linux~~ Done
  *  Separate files for each day, folders for months
 # Disclaimer
- This script is distributed "AS IS". Use it at your own risk. No immediate bug correction. no additional feature implementation guaranteed. 
+ This script is distributed "AS IS". Use it at your own risk. No immediate bug correction. no additional feature implementation guaranteed.
  
