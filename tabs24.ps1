@@ -11,13 +11,11 @@
 
 .COPYRIGHT 
 
-.TAGS
- OXE, ALU, CDR, SMDR 
+.TAGS OXE ALU CDR SMDR 
 
 .LICENSEURI 
 
-.PROJECTURI
- https://github.com/Jeepers-Gitters/OXE_EAcc 
+.PROJECTURI https://github.com/Jeepers-Gitters/OXE_EAcc 
 
 .ICONURI 
 
@@ -233,6 +231,7 @@ function ProcessOneTicket() {
     #    }
     #
     # Short processed printout on console
+    # "Sbs", "External", "Type", "StartDate", "StartTime", "Duration", "Waiting", "TG", "InitialNumber"
     $EAShortCDR = @()
     $EAShortCDR += $TicketForm[3]
     $EAShortCDR += $TicketForm[2]
@@ -251,7 +250,6 @@ function ProcessOneTicket() {
 #
 # Ethernet buffer size
 # [byte[]]$Rcvbytes = 0..8192 | ForEach-Object {0xFF}
-#
 # For buffer processing purpose set it to 2048
 # the larger the buffer the longer processing concerning TEST_REQ response. Leave to 4096.
 [byte[]]$Rcvbytes = 0..4095 | ForEach-Object { 0xFF }
@@ -654,7 +652,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
       #      Write-Host  "Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter Uptime: $($TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss'))"
     }
     default {
-      if (($datastring.Length -lt 772) -and ($datastring.Length -gt 0)) {
+      if (($datastring.Length -lt $TicketMessageLength) -and ($datastring.Length -gt 0)) {
         Write-Host -ForegroundColor Red "Unknown command :" $datastring.Length  "-"  $datastring "Log written."
         if ( $LogEnable ) {
           $datastring | Format-Hex | Out-File   -FilePath $EALogFile -Append
@@ -668,7 +666,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
   If ($Host.UI.RawUI.KeyAvailable -and ($Key = $Host.UI.RawUI.ReadKey("AllowCtrlC,NoEcho,IncludeKeyUp"))) {
     If ([Int]$Key.Character -eq 3) {
       Write-Host ""
-      Write-Host "CTRL-C pressed. Stopping script"
+      Write-Host "CTRL-C pressed. Stopping script..."
       $Stream.Flush()
       $Client.Close()
       Clear-LockFile
