@@ -58,6 +58,7 @@
  * Script signing for security
  * Windows Service mode (for automatic restart etc)
  *  ~~Test on Linux~~ Done
+ *  If no connection to CPU ask for choice - Wait or Exit
  *  Separate files for each day, folders for months
 # Disclaimer
  This script is distributed "AS IS". Use it at your own risk. No immediate bug correction. no additional feature implementation guaranteed.
