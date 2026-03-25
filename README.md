@@ -1,7 +1,7 @@
 [![Hits](https://hits.sh/github.com/Jeepers-Gitters/OXE_EAcc.svg)](https://hits.sh/github.com/Jeepers-Gitters/OXE_EAcc/)
 [![Github All Releases](https://img.shields.io/github/downloads/Jeepers-Gitters/OXE_EAcc/total.svg)]()
 # OXE_EAcc
-* Real-Time accounting tickets Processor script for Alcatel-Lucent OmniPCX Enterprise PABX Ethernet
+* Real-Time accounting tickets Processor script for Alcatel-Lucent OmniPCX Enterprise PABX CDR on Ethernet
 * Written in PowerShell as the main purpose was just to save CDR tickets for further processing. For that processing of the saved tickets  another tools is required.
 * Only IPv4 addresses supported
 * No DNS support at the moment, only IP-addresses of CPU supported
