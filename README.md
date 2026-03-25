@@ -34,7 +34,7 @@
 ## Linux
  * run _"pwsh"_ then run _".\tabs24.ps1"_ or just run _"pwsh .\tabs24.ps1"_ from Linux CLI
 # Additional information
- * CDRs are stored in files with "MainCPUAddress" as its name and with .cdr .mao .voip as its extensions. They gets appended on every start of the script.
+ * CDRs are stored in files with "MainCPUAddress" as its name and with .cdr .mao .voip as its extensions. They get appended on every start of the script.
  * Screen example:
 ![изображение](https://github.com/Jeepers-Gitters/OXE_EAcc/blob/01edf063fa7f6bb095ea26283e51f405a9fd0146/163.jpg)
  * Printed CDR fields. Check [call_types.txt](https://github.com/Jeepers-Gitters/OXE_EAcc/blob/main/call_types.txt) for full description.
