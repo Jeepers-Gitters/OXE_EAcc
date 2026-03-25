@@ -17,9 +17,9 @@
 # Configuration
  Script working parameters are configured in eacc.ini file. Names of the parameters are self-explanatory nevertheless here is the description:
  - CPU1: Main CPU IP-address
- - CPU2: Main CPU 2 in case spatial redundancy is used, leave blank if no spatial redundancy used
- - Port: TCP port in PBX, default is 2533. May be needed in case of NATed connection to OXE (Never tried)
- - WorkingDir: The directory on your PC/server where you want to save tickets files and logs. Should have write permissions. As this script runs in PowerShell in Linux there is no need to take care of directory separator ("\\" or "/")
+ - CPU2: Main CPU second IP-address in case spatial redundancy is used, leave blank if no spatial redundancy used
+ - Port: TCP port in PABX, default is 2533. May be needed in case of NATed connection to OXE (Never tried)
+ - WorkingDir: The directory on your PC/server where you want to save ticket's files and logs. Should have write permissions. As this script runs in PowerShell in Linux there is no need to take care of directory separator ("\\" or "/")
  - Logging: If set to "1" writes log file of received messages. Log file gets overwritten every time this script is run
  - Debugging: If set to "1" enables debugging messages on console
  - CDRPrint: If set to "1" prints CDR one-liner on console for monitoring purpose
