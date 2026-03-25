@@ -201,7 +201,7 @@ Write-Host "Call-Server $EAOXEMain is Main"
   $Client.Close()
   return $EAOXEMain, $EAOXEStby
 }
-# This function is used in case of exit so it's just could modified to Exit function with return code parameter. Correct later
+# This function is used in case of exit so it's just could be modified to Exit function with return code parameter. Correct later
 function Clear-LockFile () {
   if ( ( Test-Path $EALockFile ) ) {
     Remove-Item -Path  $EALockFile -Force
