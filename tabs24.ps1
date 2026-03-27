@@ -34,23 +34,24 @@ This script uses ALU netaccess protocol for receiving real-time tickets on Ether
 
 #> 
 #Requires -Version 5
-
+<#
 Param(
   [Alias ("addr", "main")]
-  [Parameter ( Position = 0, Mandatory = $false, HelpMessage = "Enter Main role CPU address here" )] $EAOXEMain = "192.168.92.52",
+#  [Parameter ( Position = 0, Mandatory = $false, HelpMessage = "Enter Main role CPU address here" )] $EAOXEMain = "192.168.92.33",
+  [Parameter ( Position = 0, Mandatory = $false, HelpMessage = "Enter Main role CPU address here" )]
   
   [Alias ("port")]
   [Parameter (Position = 1, Mandatory = $false, HelpMessage = "Enter netaccess Port here")]
-  $EATicketPort = 2533,
-  
+    
   [Alias ("log")]
   [Parameter (Mandatory = $false )]
   [Switch] $EALogEnable 
 )
+#>
 
 # Counter for main loop reenters (switchovers, e.g.)
 $StartCounter = 0
-# This data is generated from uncompressed TAX*.DAT file header. Could be extracted with this line from any file
+# This data is generated from uncompressed TAX*.DAT file header. Could be extracted with this line from any accounting file
 # cp /usr4/account/TAXBAWKO.DAT . ; mv TAXBAWKO.DAT TAXBAWKO.Z |  compress -d -c TAXBAWKO.Z | head -n 1 |  tr -d "#" | awk '{ORS=NR%4?",":"\n"}1' RS=, | tr "," "\t" > header.dat
 $TicketFields = @(4, 5, 30, 30, 20, 10, 16, 5, 20, 30, 2, 1, 17, 5, 10, 10, 5, 5, 5, 1, 16, 7, 1, 2, 10, 5, 40, 40, 10, 10, 10, 10, 1, 2, 2, 2, 30, 5, 10, 1, 17, 30, 5, 5, 5, 5, 5, 6, 6)
 $FieldsNames = @("TicketLabel", "TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
@@ -109,21 +110,39 @@ $FullTestReply = $TestReply + $TestMessage
 # Ini file
 $EAInitFile = $PSScriptRoot + $DirSeparator + "eacc.ini"
 $EALockFile = $PSScriptRoot + $DirSeparator + ".lock"
-
+#
+# Messages and stuff
+#
+$ScriptBanner = "Yet Another Ethernet Accounting Ticket Loader Script by Jeepers-Gitters@github.com. TABS2024® ©2024" 
+$WhereScriptRuns = "Running in $PSScriptRoot"
+$ParametersFile = "Loaded parameters from $EAInitFile"
+$NoParamaterFileFound = "No $EAInitFile file found. Using default parameters."
+$PowerShellVersion = "Running in Powershell Version $($PSVersionTable.PSVersion.ToString()) for $($PSVersionTable.PSEdition)"
+$ProcessedINIFile1 = "Configured $EAOXECPU1 as Main CPU and $EAOXECPU2 as StandBy CPU"
+$ProcessedINIFile2 = "Configured $EAOXECPU1 as Main CPU and no StandBy CPU"
 # Timer for TCP connection
 # for checking
 $TCPReceiveTimeoutCheck = 10000
 # for established connection
 $TCPReceiveTimeoutConnected = 31000
-# Debug preferences
+#
+# Debug preferences (now set in ini file)
+#
 #$DebugPreference = "SilentlyContinue"
-$DebugPreference = "Continue"
+#$DebugPreference = "Continue"
 # Enable for debugging
 $ErrorActionPreference = "SilentlyContinue"
 #$ErrorActionPreference = "Stop"
+
+#
+# INI file processing
+#
 # thanks to Oliver Lipkau for ini-file processing function
 # https://devblogs.microsoft.com/scripting/use-powershell-to-work-with-any-ini-file/
 # As output we receive hasharray of parameters defined in .ini file
+#
+# Functions
+#
 function Get-IniContent ($IniFile) {
   $EAccini = @{}
   switch -regex -file $IniFile {
@@ -149,8 +168,8 @@ function Get-IniContent ($IniFile) {
   return $EAccini
 } 
 
-# Name is not complying with the naming rules for PowerShell. Correct later
-function CheckOXE {
+# Name is not complying with the naming rules for PowerShell.  - Corrected
+function  Check-ConnectionOXE {
   Write-Host  -NoNewline "Host $EAOXECPU1 reachable : "
   if ( Test-Connection $EAOXECPU1 -Count 1 -Quiet   ) {
     Write-Host -ForegroundColor Green "OK"
@@ -182,7 +201,7 @@ function CheckOXE {
     exit $EAErrorHost
     }
 }
-Write-Host "Call-Server $EAOXEMain is Main"
+# Write-Host "Call-Server $EAOXEMain role is Main"
 # if ping is OK then check connection on port 2533 on Main CPU
   Write-Host -NoNewline "Connection on $EAOXEMain" port "$EATicketPort : "
   $Client = New-Object System.Net.Sockets.TCPClient($EAOXEMain, $EATicketPort)
@@ -194,7 +213,7 @@ Write-Host "Call-Server $EAOXEMain is Main"
   }
   else {
     Write-Host -ForegroundColor Red "NOK"
-    Write-Debug -Message "Exiting. Ethernet Account port closed on $($EAOXEMain)."
+    Write-Debug -Message "Exiting. Ethernet Account port $EATicketPort closed on $($EAOXEMain)."
     Clear-LockFile
     exit $EAErrorPort
   } 
@@ -278,16 +297,20 @@ $EAWrongDataRcvd = 7
 [console]::TreatControlCAsInput = $true
 #
 # Start-Transcript -Path Computer.log
-# Here we go
-# Print banner
-Write-Host -ForegroundColor Yellow "Yet Another Ethernet Accounting Ticket Loader Script by Jeepers-Gitters@github.com. TABS2024® ©2024" 
-# Check location where script runs
-Write-Host "Running in $PSScriptRoot"
 #
-# Write-Debug -Message "This version runs in Powershell Version $($PSVersionTable.PSVersion.Major) "
+# Main()
+#
+# Print banner on start
+Write-Host -ForegroundColor Yellow $ScriptBanner
+# Wrightthe  location where script runs
+Write-Host $WhereScriptRuns
+#
+Write-Host $PowerShellVersion
+
 # Check for INI file and set variables from it if exists
 if ( Test-Path -Path $EAInitFile ) {
   $EAInitParams = Get-IniContent ($EAInitFile)
+# Set debugging messages
   if ( $EAInitParams.MainAddress.Debugging -eq 1 ) {
     $DebugPreference = "Continue"
   }
@@ -328,21 +351,35 @@ if ( $EAInitParams.MainAddress.CPU2 ) {
   else {
     $EACDRBeep = $false
   }
-  Write-Host "Loaded parameters from $EAInitFile"
+  Write-Host $ParametersFile
 }
 else {
-  Write-Host "No $EAInitFile file found. Using default parameters."
+  Write-Host $NoParamaterFileFound
+# Here default parameters should be defined
+  [ipaddress]$EAOXECPU1 = "192.168.92.55"
+  $EATicketPort = 2533
+  $DebugPreference = "SilentlyContinue"
+  $NeedToCheckMainCPU = $false
+  $SpatialConfiguration = $false
+  $EACCFolder = $PSScriptRoot
+  $EALogEnable = $false
+  $TicketPrintOut = $true
+  $EACDRBeep = $false
 }
+$ProcessedINIFile1 = "Configured $EAOXECPU1 as Main CPU and $EAOXECPU2 as StandBy CPU"
+$ProcessedINIFile2 = "Configured $EAOXECPU1 as Main CPU and no StandBy CPU"
+if ( $SpatialConfiguration ) {
+  Write-Host $ProcessedINIFile1
+  }
+  else {
+  Write-Host $ProcessedINIFile2
+  }
 #
-# Change to Working Directory
+# Change to Working Directory and set files names
 Set-Location -Path $EACCFolder
 $EALogFile = $EACCFolder + $DirSeparator + "log.txt"
-# CDR ticket file
-$CDRFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".cdr"
-# MAO tickets file
-$MAOFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".mao"
-# VoIP quality tickets file
-$VoIPFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".voip"
+# Lock File
+$EALockFile = $EACCFolder + $DirSeparator + ".lock"
 #
 # Check if already runnung
 #
@@ -356,9 +393,15 @@ else {
 # Re-enter here to restart in case of switchover
 do {
 Write-Debug -Message "Enter main loop $StartCounter"
-# Get CPU addresses from CheckOXE
-$EAOXEMain, $EAOXEStby = CheckOXE
-Write-Debug -Message "Returned $EAOXEMain as Main $EAOXEStby as StandBy"
+# Get CPU addresses from  Check-ConnectionOXE
+$EAOXEMain, $EAOXEStby =  Check-ConnectionOXE
+
+# CDR ticket file
+$CDRFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".cdr"
+# MAO tickets file
+$MAOFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".mao"
+# VoIP quality tickets file
+$VoIPFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".voip"
 # Init Connection
 $Client = New-Object System.Net.Sockets.TCPClient($EAOXEMain, $EATicketPort)
 $Stream = $Client.GetStream()
@@ -477,7 +520,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         #
         #        [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + ($EATestRequest.Length - 1))])
         Start-Sleep -m $PacketDelay
-        <#        $Stream.Write($TestReply, 0, $TestReply.Length)
+<#        $Stream.Write($TestReply, 0, $TestReply.Length)
         $EAMessageCounter++
         Start-Sleep -m $PacketDelay
         $Stream.Write($TestMessage, 0, $TestMessage.Length)
