@@ -1,51 +1,51 @@
 ﻿
 <#PSScriptInfo
 
-.VERSION 0.9
+.VERSION 0.9.5
 
 .GUID d37ef3db-b18e-4d74-a3d4-10b2cc7d1787
 
 .AUTHOR Jeepers-Gitters@github.com
 
-.COMPANYNAME 
+.COMPANYNAME
 
-.COPYRIGHT 
+.COPYRIGHT
 
-.TAGS OXE ALU CDR SMDR 
+.TAGS OXE ALU CDR SMDR
 
-.LICENSEURI 
+.LICENSEURI
 
-.PROJECTURI https://github.com/Jeepers-Gitters/OXE_EAcc 
+.PROJECTURI https://github.com/Jeepers-Gitters/OXE_EAcc
 
-.ICONURI 
+.ICONURI
 
-.EXTERNALMODULEDEPENDENCIES 
- 
-.REQUIREDSCRIPTS 
+.EXTERNALMODULEDEPENDENCIES
 
-.EXTERNALSCRIPTDEPENDENCIES 
+.REQUIREDSCRIPTS
+
+.EXTERNALSCRIPTDEPENDENCIES
 
 .RELEASENOTES
  - modified for Linux pwsh compatibilities
 
-.DESCRIPTION 
+.DESCRIPTION
 This script uses ALU netaccess protocol for receiving real-time tickets on Ethernet. All received tickets without
- any processing are written to appropriate files. 
+ any processing are written to appropriate files.
 
-#> 
+#>
 #Requires -Version 5
-<#
+<# Command Line Parameters with default values give some problems so they are discontinued
 Param(
   [Alias ("addr", "main")]
 #  [Parameter ( Position = 0, Mandatory = $false, HelpMessage = "Enter Main role CPU address here" )] $EAOXEMain = "192.168.92.33",
   [Parameter ( Position = 0, Mandatory = $false, HelpMessage = "Enter Main role CPU address here" )]
-  
+
   [Alias ("port")]
   [Parameter (Position = 1, Mandatory = $false, HelpMessage = "Enter netaccess Port here")]
-    
+
   [Alias ("log")]
   [Parameter (Mandatory = $false )]
-  [Switch] $EALogEnable 
+  [Switch] $EALogEnable
 )
 #>
 
@@ -86,9 +86,10 @@ $BufferBuffer = @()
 #
 $StartPointer = 0
 #
-$EAIterationCounter = 0 
+# Buffer processing iteration counter
+$EAIterationCounter = 0
 # Bytes left in buffer after an iteration
-$EALeftToProcess = 0 
+$EALeftToProcess = 0
 # Should ticket info be printed on console
 $TicketPrintOut = $false
 # Was Keep-Alive request received
@@ -113,13 +114,18 @@ $EALockFile = $PSScriptRoot + $DirSeparator + ".lock"
 #
 # Messages and stuff
 #
-$ScriptBanner = "Yet Another Ethernet Accounting Ticket Loader Script by Jeepers-Gitters@github.com. TABS2024® ©2024" 
+$ScriptBanner = "Yet Another Ethernet Accounting Ticket Loader Script by Jeepers-Gitters@github.com. TABS2024® ©2024"
 $WhereScriptRuns = "Running in $PSScriptRoot"
 $ParametersFile = "Loaded parameters from $EAInitFile"
 $NoParamaterFileFound = "No $EAInitFile file found. Using default parameters."
 $PowerShellVersion = "Running in Powershell Version $($PSVersionTable.PSVersion.ToString()) for $($PSVersionTable.PSEdition)"
 $ProcessedINIFile1 = "Configured $EAOXECPU1 as Main CPU and $EAOXECPU2 as StandBy CPU"
 $ProcessedINIFile2 = "Configured $EAOXECPU1 as Main CPU and no StandBy CPU"
+# Printing CDRs
+$CDRTableTop = "$([char]0x250D)--------$([char]0x252C)--------------------$([char]0x252C)----$([char]0x252C)-----------$([char]0x252C)---------$([char]0x252C)---------$([char]0x252C)---------$([char]0x252C)-----$([char]0x252C)--------------------$([char]0x2511)"
+$CDRTableColumns = "$([char]0x2502){0,8}$([char]0x2502){1,20}$([char]0x2502){2,4}$([char]0x2502){3,11}$([char]0x2502){4,9}$([char]0x2502){5,9}$([char]0x2502){6,9}$([char]0x2502){7,5}$([char]0x2502){8,20}$([char]0x2502)" -f "Extn ", "External", "Type", "StartDate", "StartTime", "Duration", "Waiting", "TG", "InitialNumber"
+$CDRTableBottom = "$([char]0x2521)--------$([char]0x253C)--------------------$([char]0x253C)----$([char]0x253C)-----------$([char]0x253C)---------$([char]0x253C)---------$([char]0x253C)---------$([char]0x253C)-----$([char]0x253C)--------------------$([char]0x2525)"
+
 # Timer for TCP connection
 # for checking
 $TCPReceiveTimeoutCheck = 10000
@@ -166,10 +172,10 @@ function Get-IniContent ($IniFile) {
     }
   }
   return $EAccini
-} 
+}
 
 # Name is not complying with the naming rules for PowerShell.  - Corrected
-function  Check-ConnectionOXE {
+function  Test-ConnectionOXE {
   Write-Host  -NoNewline "Host $EAOXECPU1 reachable : "
   if ( Test-Connection $EAOXECPU1 -Count 1 -Quiet   ) {
     Write-Host -ForegroundColor Green "OK"
@@ -205,18 +211,18 @@ function  Check-ConnectionOXE {
 # if ping is OK then check connection on port 2533 on Main CPU
   Write-Host -NoNewline "Connection on $EAOXEMain" port "$EATicketPort : "
   $Client = New-Object System.Net.Sockets.TCPClient($EAOXEMain, $EATicketPort)
-  $Stream = $Client.GetStream() 
+  $Stream = $Client.GetStream()
   $Client.ReceiveTimeout = $TCPReceiveTimeoutCheck
 
   if ( $Client.Connected ) {
-    Write-Host -ForegroundColor Green "OK`n"
+    Write-Host -ForegroundColor Green "OK"
   }
   else {
     Write-Host -ForegroundColor Red "NOK"
-    Write-Debug -Message "Exiting. Ethernet Account port $EATicketPort closed on $($EAOXEMain)."
+    Write-Debug -Message "Ethernet Account port $EATicketPort closed on $($EAOXEMain), exiting"
     Clear-LockFile
     exit $EAErrorPort
-  } 
+  }
   $Client.Close()
   return $EAOXEMain, $EAOXEStby
 }
@@ -243,14 +249,15 @@ function ProcessOneTicket() {
   }
   if ( $TicketPrintOut ) {
     #
-    # Full non-processed ticket printout (in case you need it) mainly used for debugging
+    # Full non-processed ticket printout (in case you need it) mainly used for debugging. Very time consuming operation!!! Consider using it in low traffic!
     #    Write-Host "--- Ticket " $Global:CDRCounter
     #    for ($f = 2; $f -lt $Global:TicketForm.Length; $f++) {
     #      Write-Host $FieldsNames[$f]":" $Global:TicketForm[$f]
     #    }
     #
     # Short processed printout on console
-    # "Sbs", "External", "Type", "StartDate", "StartTime", "Duration", "Waiting", "TG", "InitialNumber"
+    # "Sbs" = $FieldsNames[3], "External" = $FieldsNames[2], "Type" = $FieldsNames[10] so go others: "StartDate", "StartTime", "Duration", "Waiting", "TG", "InitialNumber"
+    #
     $EAShortCDR = @()
     $EAShortCDR += $TicketForm[3]
     $EAShortCDR += $TicketForm[2]
@@ -263,7 +270,7 @@ function ProcessOneTicket() {
     $EAShortCDR += $TicketForm[36]
   }
   # Format of fields to CDR printout. Also could be generated by script.
-  "|{0,8}|{1,20}|{2,4}|{3,11}|{4,9}|{5,9}|{6,9}|{7,5}|{8,20}|" -f $EAShortCDR[0], $EAShortCDR[1], $EAShortCDR[2] , $EAShortCDR[3], $EAShortCDR[4], $EAShortCDR[5], $EAShortCDR[6], $EAShortCDR[7], $EAShortCDR[8]
+  "$([char]0x2502){0,8}$([char]0x2502){1,20}$([char]0x2502){2,4}$([char]0x2502){3,11}$([char]0x2502){4,9}$([char]0x2502){5,9}$([char]0x2502){6,9}$([char]0x2502){7,5}$([char]0x2502){8,20}$([char]0x2502)"  -f $EAShortCDR[0], $EAShortCDR[1], $EAShortCDR[2] , $EAShortCDR[3], $EAShortCDR[4], $EAShortCDR[5], $EAShortCDR[6], $EAShortCDR[7], $EAShortCDR[8]
   $Global:TicketForm[2..($Global:TicketForm.Length)] -join "`t" | Out-File -Append $CDRFile -Encoding string
 }
 #
@@ -292,6 +299,8 @@ $EAScriptRunning = 5
 $EAUserCtrlCPressed = 6
 # Wrong data received
 $EAWrongDataRcvd = 7
+# Connection closed from server
+$EAConnectionClosed = 8
 #
 # set it for Ctrl-C hook
 [console]::TreatControlCAsInput = $true
@@ -359,8 +368,8 @@ else {
   [ipaddress]$EAOXECPU1 = "192.168.92.55"
   $EATicketPort = 2533
   $DebugPreference = "SilentlyContinue"
-  $NeedToCheckMainCPU = $false
   $SpatialConfiguration = $false
+  $NeedToCheckMainCPU = $false
   $EACCFolder = $PSScriptRoot
   $EALogEnable = $false
   $TicketPrintOut = $true
@@ -393,8 +402,8 @@ else {
 # Re-enter here to restart in case of switchover
 do {
 Write-Debug -Message "Enter main loop $StartCounter"
-# Get CPU addresses from  Check-ConnectionOXE
-$EAOXEMain, $EAOXEStby =  Check-ConnectionOXE
+# Get CPU addresses from  Test-ConnectionOXE
+$EAOXEMain, $EAOXEStby =  Test-ConnectionOXE
 
 # CDR ticket file
 $CDRFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".cdr"
@@ -415,7 +424,7 @@ if ( $LogEnable ) {
 }
 $Stream.Write($InitMessage, 0, $InitMessage.Length)
 $EAMessageCounter++
-$i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)  
+$i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)
 $data = [System.BitConverter]::ToString($i)
 $datastring = [System.BitConverter]::ToString($Rcvbytes[0..($i - 1)])
 $datastring | Format-Hex | Out-File   -FilePath $EALogFile -Append
@@ -427,25 +436,27 @@ switch ($data.Length) {
       Write-Host -ForegroundColor Yellow "Start sequence reply received, waiting for role..."
       $i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)
       $data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes, 0, $i)
-      $datastring = [System.BitConverter]::ToString($Rcvbytes[0..($i - 1)]) 
+      $datastring = [System.BitConverter]::ToString($Rcvbytes[0..($i - 1)])
       $datastring | Format-Hex | Out-File   -FilePath $EALogFile -Append
       if ($datastring -eq $MainRole) {
         Write-Host -ForegroundColor Yellow "Role is Main. Link Established"
-        Write-Host  "$([char]0x250D)-------------------------------------------------------------------------------------------------------$([char]0x2511)"
-        "|{0,8}|{1,20}|{2,4}|{3,11}|{4,9}|{5,9}|{6,9}|{7,5}|{8,20}|" -f "Sbs", "External", "Type", "StartDate", "StartTime", "Duration", "Waiting", "TG", "InitialNumber"
-        Write-Host  "$([char]0x2521)-------------------------------------------------------------------------------------------------------$([char]0x2525)"
-
+		Write-Host $CDRTableTop
+		$CDRTableColumns
+		Write-Host $CDRTableBottom
       }
       else {
         Write-Host -ForegroundColor Red "Role is not Main $datastring `n"
-        Write-Debug -Message "Disconnect." 
+        Write-Debug -Message "Disconnect."
         $Stream.Flush()
         $Client.Close()
         Clear-LockFile
         exit $EAErrorNotMain
       }
-
     }
+# some VPN clients running reply to ping, open $EATicketPort and answer to preanbule with FF-FF
+		 else {
+		 Write-Debug -Message "Possibly not OXE. Check IP-address."
+	 }
   }
   3 {
     if ($datastring -eq $ThreeBytesAnswer) {
@@ -460,12 +471,12 @@ switch ($data.Length) {
     }
   }
 
-  default { 
+  default {
     Write-Host "Too many bytes received."
     $Stream.Flush()
     $Client.Close()
     Clear-LockFile
-    exit $EAErrorBytes 
+    exit $EAErrorBytes
   }
 }
 
@@ -476,7 +487,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
   #  Write-Host -ForegroundColor Yellow "--- Wait for tickets" $Global:CDRCounter "/" $MAOCounter "/" $VOIPCounter
   $EAMessageCounter++
   # $data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes, 0, $i)
-  $data = [System.BitConverter]::ToString($Rcvbytes[0..($i - 1)]) 
+  $data = [System.BitConverter]::ToString($Rcvbytes[0..($i - 1)])
   $datastring = ($Rcvbytes[0..($i - 1)])
   if ( $LogEnable ) {
     $datastring | Format-Hex | Out-File   -FilePath $EALogFile -Append
@@ -538,7 +549,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         $TicketTruncated = $false
         $TicketReady = $true
       }
-      
+
       While ( $StartPointer -lt $BufferBuffer.Length ) {
         $EAIterationCounter++
         $datastring = [System.BitConverter]::ToString($BufferBuffer[$StartPointer..($StartPointer + 1)])
@@ -629,7 +640,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
               $StartPointer = $StartPointer + $TicketMessageLength
               $datastring = "Ticket Info"
             }
-            $VoIPTicket { 
+            $VoIPTicket {
               #            Write-Debug -Message " VoIP Ticket"
               if ( $PSVersionTable.PSVersion.Major -lt 6 ) {
                 Add-Content -Path $VoIPFile -Value $data[4..$data.Length] -Encoding Byte
@@ -656,7 +667,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
             }
             "NOP" {
               Write-Debug -Message "Buffer processed. Skipping.."
-            } 
+            }
             default {
               Write-Host -ForegroundColor Red "Unknown ticket type. Check $EALogFile. $TicketFlag"
             }
@@ -689,7 +700,7 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
         #        Write-Host -ForegroundColor Green "--- Runtime" $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
         $EAKeepAliveReq = $false
         #        Write-Host -NoNewLine "`r Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter Uptime: $($TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss'))" "`r"
-      } 
+      }
     }
     "Ticket Info" {
       #      Write-Host  "Tickets received: $Global:CDRCounter, $MAOCounter, $VOIPCounter Uptime: $($TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss'))"
@@ -718,11 +729,16 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
     }
 }
 #
-# 
+#
 #
 if ( -Not (Get-NetTCPConnection -State Established -RemotePort $EATicketPort -ErrorAction SilentlyContinue) ) {
 #if ( -Not (Get-NetTCPConnection -State Established -RemotePort $EATicketPort ) ) {
-  Write-Debug -Message "Connection closed from server."
+#  Write-Debug -Message "Connection closed from server. Exiting"
+  Write-Host "Connection closed from server. Exiting"
+  $Stream.Flush()
+  $Client.Close()
+  Clear-LockFile
+  exit $EAConnectionClosed
 }
 $EAUptime = $TestKeepAlive.Elapsed.ToString('dd\.hh\:mm\:ss')
 $Stream.Flush()
@@ -731,8 +747,8 @@ if ( $SpatialConfiguration )  {
   Write-Debug -Message "Possible CPU switch over from $EAOXEMain to $EAOXEStby"
   if  ( Test-Connection $EAOXEStby -Count 1 -Quiet   ) {
     $EAOXEMain = $EAOXEStby
-    Write-Host -ForegroundColor Yellow "New Main CPU $EAOXEMain"
-    Write-Host -ForegroundColor Red "Restarting script!"
+    Write-Debug -Message "New Main CPU $EAOXEMain"
+    Write-Debug -Message "Restarting script for the new Main CPU"
     }
   }
 #
