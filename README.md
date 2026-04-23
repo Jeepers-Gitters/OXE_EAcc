@@ -20,7 +20,7 @@
  - CPU2: Main CPU second IP-address in case __spatial redundancy__ is used (that means there are __two different__ Main CPU addresses), leave blank if no spatial redundancy used
  - Port: TCP port in PABX, default is 2533. May be needed in case of NATed connection to OXE (Never tried)
  - WorkingDir: The directory on your PC/server where you want to save ticket's files and logs. Should have write permissions. As this script runs in PowerShell in Linux there is no need to take care of directory separator ("\\" or "/")
- - Logging: If set to "1" writes log file of received messages. Log file gets overwritten every time this script is run
+ - Logging: If set to "1" writes log file of received messages. Log file gets appended every time this script is run. Take care of its size
  - Debugging: If set to "1" enables debugging messages on console
  - CDRPrint: If set to "1" prints CDR one-liner on console for monitoring purpose
  - CDRBeep: If set to "1" beeps on every ticket received (could be annoying f large amount of tickets)
@@ -34,7 +34,7 @@
 ## Linux
  * run _"pwsh"_ then run _".\tabs24.ps1"_ or just run _"pwsh .\tabs24.ps1"_ from Linux CLI
 # Additional information
- * CDRs are stored in files with "MainCPUAddress" as its name and with .cdr .mao .voip as its extensions. They get appended on every start of the script.
+ * CDRs are stored in files with "MainCPUAddress" as its name and with .cdr .mao .voip as its extensions. They get appended on every start of the script. In case of spatial redundancy a separate file is created for each CPU address
  * Screen example:
 ![изображение](https://github.com/Jeepers-Gitters/OXE_EAcc/blob/01edf063fa7f6bb095ea26283e51f405a9fd0146/163.jpg)
  * Printed CDR fields. Check [call_types.txt](https://github.com/Jeepers-Gitters/OXE_EAcc/blob/main/call_types.txt) for full description.
