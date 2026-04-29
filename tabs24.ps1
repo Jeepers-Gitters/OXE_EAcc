@@ -60,14 +60,14 @@ $FieldsNames = @("TicketLabel", "TicketVersion", "CalledNumber", "ChargedNumber"
 $TicketMessageLength = 772
 <# Abbreviations for call types, see file call_types.txt
 0	OC:	PublicNetworkOutgoingCall
-1	OCP:	PublicNetworkOutgoingCallThroughPrivateNetwork 
+1	OCP:	PublicNetworkOutgoingCallThroughPrivateNetwork
 2	PN:	PrivateNetworkCall
-3	LN:	LocalNetworkCall 
+3	LN:	LocalNetworkCall
 4	IC:	PublicNetworkIncomingCall
 5	ICP:	PublicNetworkIncomingCallThroughPrivateNetwork
 6	UN:	Unspecified
-7	PO:	PrivateNetworkOutgoingCallToPublicNetwork 
-8	POP:	PrivateNetworkOutgoingCallToPrivateNetwork 
+7	PO:	PrivateNetworkOutgoingCallToPublicNetwork
+8	POP:	PrivateNetworkOutgoingCallToPrivateNetwork
 9	IP:	PublicNetworkIncomingCallToPrivateNetwork
 10	PIP:	PrivateNetworkIncomingCallToPrivateNetwork
 11:	PPO:	PublicOrPrivateNetworkOutgoingCallThroughPrivateNetwork
@@ -190,15 +190,15 @@ $EAConnectionClosed = 8
  $TicketPrintOut = $true
  $EACDRBeep = $false
 #>
-$EAInitParams = @{ 
+$EAInitParams = @{
     CPU1 = "192.168.92.55"
     CPU2 = ""
     Port = "2533"
     WorkingDir = "C:\Temp\EACC\Files"
     Logging = "0"
-    Debugging = "0"                                                                                           
+    Debugging = "0"
     CDRPrint = "1"
-    CDRBeep = "0"                                                                                                                                                                                                                                                                                                                              
+    CDRBeep = "0"
     }
 #
 # set it for Ctrl-C hook
@@ -351,7 +351,7 @@ function Get-IniContent ($IniFile) {
 # # # # # # # # # # # # # # # #
 #
 # Main()
-# 
+#
 # # # # # # # # # # # # # # # #
 #
 # Print banner on start
@@ -427,26 +427,26 @@ $EALogFile = $EACCFolder + $DirSeparator + "log.txt"
 # Lock File
 $EALockFile = $EACCFolder + $DirSeparator + ".lock"
 
-# Dump data init for debug purposes???
+# Dump data init for debug purpose
 
-foreach ($h in $EAInitParams.Keys) 
+foreach ($p in $EAInitParams.Keys)
 {
-  Write-Debug  "$h :  $($EAInitParams.Item($h))"
+  Write-Debug  "$p : $($EAInitParams.Item($p))"
 }
 #
 #exit
 
-# Check if script already runnung
+# Check if script is already runnung
 #
 if (-not (Test-Path $EALockFile)) {
   New-Item -ItemType File -Path $EALockFile | Out-Null
 }
 else {
-  Write-Host -ForegroundColor Red "Found $EALockFile. The script already running or crashed. Check for running script or delete $EALockFile file. Exiting."
+  Write-Host -ForegroundColor Red "Found $EALockFile. The script is already running or crashed. Check for running script or delete $EALockFile file. Exiting."
   exit $EAScriptRunning
 }
-# 
-# Re-enter here to restart in case of switchover or lost connectivity 
+#
+# Re-enter here to restart in case of switchover or lost connectivity
 do {
 Write-Debug -Message "Enter main loop $StartCounter"
 # Get CPU addresses from Test-ConnectionOXE
