@@ -38,10 +38,10 @@
  * CDRs are stored in files with "MainCPUAddress" as its name and with .cdr .mao .voip as its extensions. They get appended on every start of the script. In case of spatial redundancy a separate file is created for each CPU address
  * Screen example:
 ![изображение](https://github.com/Jeepers-Gitters/OXE_EAcc/blob/01edf063fa7f6bb095ea26283e51f405a9fd0146/163.jpg)
- * Printed CDR fields. Check [call_types.txt](https://github.com/Jeepers-Gitters/OXE_EAcc/blob/main/call_types.txt) for full description.
+ * Printed CDR fields. 
     - "ChargedNumber"
     - "CalledNumber"
-    - "CallType"
+    - "CallType", check source script for abbreviations used
     - "StartDate"
     - "StartTime"
     - "Duration"
