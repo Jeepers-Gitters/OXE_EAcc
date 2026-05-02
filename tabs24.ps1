@@ -32,33 +32,43 @@ This script uses ALU netaccess protocol for receiving real-time tickets on Ether
  any processing are written to appropriate files.
 
 #>
+#
 # This script works only with PowerShell version 5 and higher
 #Requires -Version 5
+#
 [version]$EAScriptVersion="0.9.7"
-<# Command Line Parameters with default values gave some problems so they are discontinued
-Param(
-  [Alias ("addr", "main")]
-#  [Parameter ( Position = 0, Mandatory = $false, HelpMessage = "Enter Main role CPU address here" )] $EAOXEMain = "192.168.92.33",
-  [Parameter ( Position = 0, Mandatory = $false, HelpMessage = "Enter Main role CPU address here" )]
-
-  [Alias ("port")]
-  [Parameter (Position = 1, Mandatory = $false, HelpMessage = "Enter netaccess Port here")]
-
-  [Alias ("log")]
-  [Parameter (Mandatory = $false )]
-  [Switch] $EALogEnable
-)
-#>
-
+#
 # Counter for main loop reenters (switchovers, e.g.)
+#
 $StartCounter = 0
 # This ticket fields data is generated from uncompressed TAX*.DAT file header. Could be extracted with this line from any accounting file
 # cp /usr4/account/TAXBAWKO.DAT . ; mv TAXBAWKO.DAT TAXBAWKO.Z |  compress -d -c TAXBAWKO.Z | head -n 1 |  tr -d "#" | awk '{ORS=NR%4?",":"\n"}1' RS=, | tr "," "\t" > header.dat
 $TicketFields = @(4, 5, 30, 30, 20, 10, 16, 5, 20, 30, 2, 1, 17, 5, 10, 10, 5, 5, 5, 1, 16, 7, 1, 2, 10, 5, 40, 40, 10, 10, 10, 10, 1, 2, 2, 2, 30, 5, 10, 1, 17, 30, 5, 5, 5, 5, 5, 6, 6)
 $FieldsNames = @("TicketLabel", "TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
+#
+# Define columns for CDR  printout
+# Which fields we Print
+# from array above except for calculated Duration not used at the moment
+#$CDRFields = @($FieldsNames.IndexOf("ChargedNumber"), $FieldsNames.IndexOf("CalledNumber"), $FieldsNames.IndexOf("CallType"), $FieldsNames.IndexOf("StartDateTime"), $FieldsNames.IndexOf("EndDateTime"), $FieldsNames.IndexOf("Duration"), $FieldsNames.IndexOf("WaitingDuration"), $FieldsNames.IndexOf("TrunkGroupIdentity"), $FieldsNames.IndexOf("InitialDialledNumber"))
+$CDRFieldsLength = @(9, 20, 4 , 11, 9, 9, 9, 5, 20)
+# Following constatnts coudl be generated from above array
+# in format string -f its not possible to use array's elements directly
+# for $Columns in $CDRFieldsLength 
+[int]$FirstColumnLength = $CDRFieldsLength[0]
+[int]$SecondColumnLength = $CDRFieldsLength[1]
+[int]$ThirdColumnLength = $CDRFieldsLength[2]
+[int]$FourthColumnLength = $CDRFieldsLength[3]
+[int]$FifthColumnLength = $CDRFieldsLength[4]
+[int]$SixthColumnLength = $CDRFieldsLength[5]
+[int]$SeventhColumnLength = $CDRFieldsLength[6]
+[int]$EighthColumnLength = $CDRFieldsLength[7]
+[int]$NinthColumnLength = $CDRFieldsLength[8]
+
 # Application level ticket length
 $TicketMessageLength = 772
-<# Abbreviations for call types, see file call_types.txt
+#
+<#
+Abbreviations for call types in CDR output
 0	OC:	PublicNetworkOutgoingCall
 1	OCP:	PublicNetworkOutgoingCallThroughPrivateNetwork
 2	PN:	PrivateNetworkCall
@@ -74,10 +84,13 @@ $TicketMessageLength = 772
 12:	PPI:	PublicOrPrivateNetworkIncomingCallThroughPrivateNetwork
 13	PIC:	PrivateNetworkIncomingCall
 14	LL:	LocalLocalCall
-15	LT:	LocalTransit #>
+15	LT:	LocalTransit 
+#>
+#
 $EACallTypes = @("OC", "OCP", "PN", "LN", "IC", "ICP", "UN", "PO", "POP", "IP", "PIP", "PPO", "PPI", "PIC", "LL", "LT")
 #
 # Commands and responces of EA protocol
+#
 $TicketMark = "01-00"
 $TestMark = "00-08"
 $BufferTest = "00-08-54-45"
@@ -99,7 +112,9 @@ $Global:CDRCounter = 0
 [int]$MAOCounter = 0
 [int]$VOIPCounter = 0
 $Global:TicketForm = @()
+#
 # Here we load all data received from Ethernet
+#
 $BufferBuffer = @()
 #
 $StartPointer = 0
@@ -112,10 +127,17 @@ $EALeftToProcess = 0
 $EAKeepAliveReq = $false
 #
 $CPUSwitchover = $true
+#
+# Total messages received Counter
+#
 [int]$EAMessageCounter = 0
+#
 # Get Linux and Windows compatibility directiry separator
+#
 $DirSeparator = [IO.Path]::DirectorySeparatorChar
+#
 # Messages to send
+# 
 [Byte[]]$InitMessage = 0x00, 0x01, 0x53
 [Byte[]]$StartMessage = 0x00, 0x02, 0x00, 0x00
 [Byte[]]$ACKMessage = 0x03, 0x04
@@ -123,7 +145,7 @@ $DirSeparator = [IO.Path]::DirectorySeparatorChar
 [Byte[]]$TestMessage = 0x54, 0x45, 0x53, 0x54, 0x5F, 0x52, 0x53, 0x50
 $FullTestReply = $TestReply + $TestMessage
 #
-# Messages and stuff
+# Console and debug messages and stuff
 #
 $ScriptBanner = "Yet Another Ethernet Accounting Ticket Loader Script by Jeepers-Gitters@github.com. v.$EAScriptVersion ©2026"
 $WhereScriptRuns = "Running in $PSScriptRoot"
@@ -133,15 +155,20 @@ $DefaultParametersUsed = ", loading default parameters."
 $PowerShellVersion = "Running in Powershell Version $($PSVersionTable.PSVersion.ToString()) for $($PSVersionTable.PSEdition)"
 $ProcessedINIFile1 = "Configured $EAOXECPU1 as Main CPU and $EAOXECPU2 as StandBy CPU"
 $ProcessedINIFile2 = "Configured $EAOXECPU1 as Main CPU and no StandBy CPU"
-# Printing CDRs
-$CDRTableTop = "$([char]0x250D)--------$([char]0x252C)--------------------$([char]0x252C)----$([char]0x252C)-----------$([char]0x252C)---------$([char]0x252C)---------$([char]0x252C)---------$([char]0x252C)-----$([char]0x252C)--------------------$([char]0x2511)"
-$CDRTableColumns = "$([char]0x2502){0,8}$([char]0x2502){1,20}$([char]0x2502){2,4}$([char]0x2502){3,11}$([char]0x2502){4,9}$([char]0x2502){5,9}$([char]0x2502){6,9}$([char]0x2502){7,5}$([char]0x2502){8,20}$([char]0x2502)" -f "Extn ", "External", "Type", "StartDate", "StartTime", "Duration", "Waiting", "TG", "InitialNumber"
-$CDRTableBottom = "$([char]0x2521)--------$([char]0x253C)--------------------$([char]0x253C)----$([char]0x253C)-----------$([char]0x253C)---------$([char]0x253C)---------$([char]0x253C)---------$([char]0x253C)-----$([char]0x253C)--------------------$([char]0x2525)"
-# Ini file must be declared before we can load parameters
+#
+# Printing CDRs table
+#
+$CDRTableTop = "$([char]0x250D)---------$([char]0x252C)--------------------$([char]0x252C)----$([char]0x252C)-----------$([char]0x252C)---------$([char]0x252C)---------$([char]0x252C)---------$([char]0x252C)-----$([char]0x252C)--------------------$([char]0x2511)"
+$CDRTableColumns = "$([char]0x2502){0,$FirstColumnLength}$([char]0x2502){1,$SecondColumnLength}$([char]0x2502){2,$ThirdColumnLength}$([char]0x2502){3,$FourthColumnLength}$([char]0x2502){4,$FifthColumnLength}$([char]0x2502){5,$SixthColumnLength}$([char]0x2502){6,$SeventhColumnLength}$([char]0x2502){7,$EighthColumnLength}$([char]0x2502){8,$NinthColumnLength}$([char]0x2502)" -f "Extn ", "External", "Type", "StartDate", "StartTime", "Duration", "Waiting", "TG", "InitialNumber"
+$CDRTableBottom = "$([char]0x2521)---------$([char]0x253C)--------------------$([char]0x253C)----$([char]0x253C)-----------$([char]0x253C)---------$([char]0x253C)---------$([char]0x253C)---------$([char]0x253C)-----$([char]0x253C)--------------------$([char]0x2525)"
+#
+# Ini file path must be declared before we can load parameters
+#
 $EAInitFile = $PSScriptRoot + $DirSeparator + "eacc.ini"
 # Timer for TCP connection
 # for checking
 $TCPReceiveTimeoutCheck = 10000
+# Timer for TCP connection
 # for established connection
 $TCPReceiveTimeoutConnected = 31000
 #
@@ -149,7 +176,6 @@ $TCPReceiveTimeoutConnected = 31000
 # Enable for debugging in case of problem
 $ErrorActionPreference = "Continue"
 #$ErrorActionPreference = "Stop"
-
 #
 # Ethernet buffer size
 # [byte[]]$Rcvbytes = 0..8192 | ForEach-Object {0xFF}
@@ -157,7 +183,9 @@ $ErrorActionPreference = "Continue"
 # the larger the buffer the longer processing concerning TEST_REQ response. Leave it to 4096.
 [byte[]]$Rcvbytes = 0..4095 | ForEach-Object { 0xFF }
 [Int]$PacketDelay = 250
+#
 # Intermediary buffer for processing
+#
 $data = $datastring = $NULL
 #
 # Errors declaration
@@ -180,7 +208,9 @@ $EAWrongDataRcvd = 7
 $EAConnectionClosed = 8
 #
 # Default init Parameters
-<# [ipaddress]$EAOXECPU1 = "192.168.92.55"
+#
+<# old procedure for default parameters init 
+ [ipaddress]$EAOXECPU1 = "192.168.92.55"
  $EATicketPort = 2533
  $DebugPreference = "SilentlyContinue"
  $SpatialConfiguration = $false
@@ -202,14 +232,16 @@ $EAInitParams = @{
     }
 #
 # set it for Ctrl-C hook
+#
 [console]::TreatControlCAsInput = $true
+#
 # Flush Keyboard Buffer
+#
 Start-Sleep -Seconds 1
 $Host.UI.RawUI.FlushInputBuffer()
 #
-# Functions declaration
+# Functions declarations
 #
-# Name is not complying with the naming rules for PowerShell.  - Corrected
 function  Test-ConnectionOXE {
   Write-Host  -NoNewline "Host $EAOXECPU1 reachable : "
   if ( Test-Connection $EAOXECPU1 -Count 1 -Quiet   ) {
@@ -301,7 +333,7 @@ function ProcessOneTicket() {
     $EAShortCDR += $TicketForm[$FieldsNames.IndexOf("InitialDialledNumber")]
   }
   # Format of fields to CDR printout. Also could be generated by script.
-  "$([char]0x2502){0,8}$([char]0x2502){1,20}$([char]0x2502){2,4}$([char]0x2502){3,11}$([char]0x2502){4,9}$([char]0x2502){5,9}$([char]0x2502){6,9}$([char]0x2502){7,5}$([char]0x2502){8,20}$([char]0x2502)"  -f $EAShortCDR[0], $EAShortCDR[1], $EAShortCDR[2] , $EAShortCDR[3], $EAShortCDR[4], $EAShortCDR[5], $EAShortCDR[6], $EAShortCDR[7], $EAShortCDR[8]
+  "$([char]0x2502){0,9}$([char]0x2502){1,20}$([char]0x2502){2,4}$([char]0x2502){3,11}$([char]0x2502){4,9}$([char]0x2502){5,9}$([char]0x2502){6,9}$([char]0x2502){7,5}$([char]0x2502){8,20}$([char]0x2502)"  -f $EAShortCDR[0], $EAShortCDR[1], $EAShortCDR[2] , $EAShortCDR[3], $EAShortCDR[4], $EAShortCDR[5], $EAShortCDR[6], $EAShortCDR[7], $EAShortCDR[8]
   $Global:TicketForm[2..($Global:TicketForm.Length)] -join "`t" | Out-File -Append $CDRFile -Encoding string
 }
 # This function is used in case of exit so it's just could be modified to Exit function with return code parameter. Correct later
@@ -346,6 +378,7 @@ function Get-IniContent ($IniFile) {
   }
   return $EAccini
 }
+#
 # Start-Transcript -Path Computer.log
 #
 # # # # # # # # # # # # # # # #
@@ -357,9 +390,9 @@ function Get-IniContent ($IniFile) {
 # Print banner on start
 Write-Host -ForegroundColor Yellow $ScriptBanner
 #
-Write-Host $PowerShellVersion
+Write-Debug -Message $PowerShellVersion
 # Print the  location where this script runs
-Write-Host $WhereScriptRuns
+Write-Debug -Message $WhereScriptRuns
 #
 # Check for INI file and set variables from it if exists
 #
@@ -367,9 +400,9 @@ if ( Test-Path -Path $EAInitFile ) {
 	Write-Host $ParametersFile $EAInitFile
 	$EAInitParams = Get-IniContent ($EAInitFile)
 }
+# Here default parameters used
 else {
   Write-Host $NoParamaterFileFound $EAInitFile $DefaultParametersUsed
-# Here default parameters used
 }
 # Set working dir
   $EACCFolder = $EAInitParams.WorkingDir
@@ -433,7 +466,6 @@ foreach ($p in $EAInitParams.Keys)
 {
   Write-Debug  "$p : $($EAInitParams.Item($p))"
 }
-#
 #exit
 
 # Check if script is already runnung
@@ -475,7 +507,7 @@ Write-Debug -Message "$EAMessageCounter. Received $($data.Length) bytes : $datas
 switch ($data.Length) {
   2 {
     if ($datastring -eq $StartMsg) {
-      Write-Host -ForegroundColor Yellow "Start sequence reply received, waiting for role..."
+      Write-Debug -Message "Start sequence reply received, waiting for role..."
       $i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)
       $data = (New-Object -TypeName System.Text.ASCIIEncoding).Getbytes($Rcvbytes, 0, $i)
       $datastring = [System.BitConverter]::ToString($Rcvbytes[0..($i - 1)])
@@ -483,11 +515,11 @@ switch ($data.Length) {
        $datastring | Format-Hex | Out-File   -FilePath $EALogFile -Append
 	  }
       if ($datastring -eq $MainRole) {
-        Write-Host -ForegroundColor Yellow "Role is Main. Link Established"
+        Write-Debug -Message "Role is Main. Link Established"
 		Write-Host $CDRTableTop
 		$CDRTableColumns
 		Write-Host $CDRTableBottom
-# now we know the node address so define CDR file
+# now we know the node address so define CDRs file
 # CDR ticket file
         $CDRFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".cdr"
 # MAO tickets file
@@ -497,7 +529,7 @@ switch ($data.Length) {
       }
       else {
         Write-Host -ForegroundColor Red "Role is not Main $datastring `n"
-        Write-Debug -Message "Disconnect."
+        Write-Debug -Message "Disconnect.Check CPU IP-address setting"
         $Stream.Flush()
         $Client.Close()
         Clear-LockFile
@@ -506,7 +538,7 @@ switch ($data.Length) {
     }
 # some VPN clients running reply to ping, open $EATicketPort and answer to preanbule with FF-FF
 		 else {
-		 Write-Debug -Message "Possibly not OXE. Check CPU IP-address."
+		 Write-Debug -Message "Possibly not OXE. Check CPU IP-address setting."
 	 }
   }
   3 {
