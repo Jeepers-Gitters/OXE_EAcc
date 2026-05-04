@@ -34,6 +34,7 @@ This script uses ALU netaccess protocol for receiving real-time tickets on Ether
 #>
 #
 # This script works only with PowerShell version 5 and higher
+#
 #Requires -Version 5
 #
 [version]$EAScriptVersion="0.9.7"
@@ -157,7 +158,7 @@ $ProcessedINIFile1 = "Configured $EAOXECPU1 as Main CPU and $EAOXECPU2 as StandB
 $ProcessedINIFile2 = "Configured $EAOXECPU1 as Main CPU and no StandBy CPU"
 #
 # Printing CDRs table
-#
+# Define these lines in the easiest way (could be generated but leave it like that at the moment)
 $CDRTableTop = "$([char]0x250D)---------$([char]0x252C)--------------------$([char]0x252C)----$([char]0x252C)-----------$([char]0x252C)---------$([char]0x252C)---------$([char]0x252C)---------$([char]0x252C)-----$([char]0x252C)--------------------$([char]0x2511)"
 $CDRTableColumns = "$([char]0x2502){0,$FirstColumnLength}$([char]0x2502){1,$SecondColumnLength}$([char]0x2502){2,$ThirdColumnLength}$([char]0x2502){3,$FourthColumnLength}$([char]0x2502){4,$FifthColumnLength}$([char]0x2502){5,$SixthColumnLength}$([char]0x2502){6,$SeventhColumnLength}$([char]0x2502){7,$EighthColumnLength}$([char]0x2502){8,$NinthColumnLength}$([char]0x2502)" -f "Extn ", "External", "Type", "StartDate", "StartTime", "Duration", "Waiting", "TG", "InitialNumber"
 $CDRTableBottom = "$([char]0x2521)---------$([char]0x253C)--------------------$([char]0x253C)----$([char]0x253C)-----------$([char]0x253C)---------$([char]0x253C)---------$([char]0x253C)---------$([char]0x253C)-----$([char]0x253C)--------------------$([char]0x2525)"
@@ -181,14 +182,18 @@ $ErrorActionPreference = "Continue"
 # [byte[]]$Rcvbytes = 0..8192 | ForEach-Object {0xFF}
 # For buffer processing purpose set it to 2048
 # the larger the buffer the longer processing concerning TEST_REQ response. Leave it to 4096.
+# Fill all elements with 0xFF value
 [byte[]]$Rcvbytes = 0..4095 | ForEach-Object { 0xFF }
+#
+# Set delay for sending Ethernet answer
+#
 [Int]$PacketDelay = 250
 #
 # Intermediary buffer for processing
 #
 $data = $datastring = $NULL
 #
-# Errors declaration
+# Errors declaration (also could be done via array assignment but keep it simple, stupid)
 #
 # No connection to host
 $EAErrorHost = 1
@@ -209,17 +214,6 @@ $EAConnectionClosed = 8
 #
 # Default init Parameters
 #
-<# old procedure for default parameters init 
- [ipaddress]$EAOXECPU1 = "192.168.92.55"
- $EATicketPort = 2533
- $DebugPreference = "SilentlyContinue"
- $SpatialConfiguration = $false
- $NeedToCheckMainCPU = $false
- $EACCFolder = $PSScriptRoot
- $EALogEnable = $false
- $TicketPrintOut = $true
- $EACDRBeep = $false
-#>
 $EAInitParams = @{
     CPU1 = "192.168.92.55"
     CPU2 = ""
@@ -503,7 +497,10 @@ if ($EALogEnable) {
   $datastring | Format-Hex | Out-File   -FilePath $EALogFile -Append
 }
 Write-Debug -Message "$EAMessageCounter. Received $($data.Length) bytes : $datastring"
-
+#
+# Processing data received
+# Not an ideal procedure written but it works requires refactoring
+# 
 switch ($data.Length) {
   2 {
     if ($datastring -eq $StartMsg) {
@@ -519,7 +516,7 @@ switch ($data.Length) {
 		Write-Host $CDRTableTop
 		$CDRTableColumns
 		Write-Host $CDRTableBottom
-# now we know the node address so define CDRs file
+# now we know the node address so could define CDRs file names
 # CDR ticket file
         $CDRFile = $EACCFolder + $DirSeparator + $EAOXEMain + ".cdr"
 # MAO tickets file
@@ -565,7 +562,9 @@ switch ($data.Length) {
 
 $Stream.Write($StartMessage, 0, $StartMessage.Length)
 $TestKeepAlive = [System.Diagnostics.Stopwatch]::StartNew()
+#
 # $i - number of bytes received $datastring - binary bytes received $data - string representation
+#
 while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
   #  Write-Host -ForegroundColor Yellow "--- Wait for tickets" $Global:CDRCounter "/" $MAOCounter "/" $VOIPCounter
   $EAMessageCounter++
@@ -593,14 +592,12 @@ while (($i = $Stream.Read($Rcvbytes, 0, $Rcvbytes.Length)) -ne 0) {
       #      $datastring = $data
       $datastring = [System.Text.Encoding]::UTF8.GetString($datastring)
     }
-
     # Single accounting ticket is of fixed size 772 bytes
     # Actually less (528) the rest is padded with "00"
     # MAO ticket is variable size but "packet" is still 772 bytes
-    # If all types of tickets are send (mao, cdr, voip) then largely they are send in large buffers
+    # If all types of tickets are received (mao, cdr, voip) then they are send in large buffers
     #
     # Buffer processing
-    #
     #
     default {
       #$datastring = [System.Text.Encoding]::ASCII.GetString($data)
