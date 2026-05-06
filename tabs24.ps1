@@ -155,7 +155,7 @@ $CDRTableTop = "$([char]0x250D)---------$([char]0x252C)--------------------$([ch
 $CDRTableColumns = "$([char]0x2502){0,$CDRColumn0}$([char]0x2502){1,$CDRColumn1}$([char]0x2502){2,$CDRColumn2}$([char]0x2502){3,$CDRColumn3}$([char]0x2502){4,$CDRColumn4}$([char]0x2502){5,$CDRColumn5}$([char]0x2502){6,$CDRColumn6}$([char]0x2502){7,$CDRColumn7}$([char]0x2502){8,$CDRColumn8}$([char]0x2502)" -f "Extn ", "External", "Type", "StartDate", "StartTime", "Duration", "Waiting", "TG", "InitialNumber"
 $CDRTableBottom = "$([char]0x2521)---------$([char]0x253C)--------------------$([char]0x253C)----$([char]0x253C)-----------$([char]0x253C)---------$([char]0x253C)---------$([char]0x253C)---------$([char]0x253C)-----$([char]0x253C)--------------------$([char]0x2525)"
 #
-# Ini file path must be declared before we can load parameters
+# Ini file path and name must be declared before we can load parameters
 #
 $EAInitFile = $PSScriptRoot + $DirSeparator + "eacc.ini"
 # Timer for TCP connection
@@ -210,9 +210,9 @@ $EAInitParams = @{
     CPU1 = "192.168.92.55"
     CPU2 = ""
     Port = "2533"
-    WorkingDir = "C:\Temp\EACC\Files"
+    WorkingDir = $PSScriptRoot
     Logging = "0"
-    Debugging = "0"
+    Debugging = "1"
     CDRPrint = "1"
     CDRBeep = "0"
     }
@@ -375,7 +375,8 @@ function Get-IniContent ($IniFile) {
 # # # # # # # # # # # # # # # #
 #
 # Print banner on start
-Write-Host -ForegroundColor Yellow $ScriptBanner
+Write-Host -ForegroundColor Black -BackgroundColor Yellow $ScriptBanner
+Write-Host ""
 #
 Write-Debug -Message $PowerShellVersion
 # Print the  location where this script runs
@@ -391,10 +392,6 @@ if ( Test-Path -Path $EAInitFile ) {
 else {
   Write-Host $NoParamaterFileFound $EAInitFile $DefaultParametersUsed
 }
-# Set working dir
-  $EACCFolder = $EAInitParams.WorkingDir
-# Set port
-  $EATicketPort = $EAInitParams.Port
 # Set debugging messages
   if ( $EAInitParams.Debugging -eq 1 ) {
     $DebugPreference = "Continue"
@@ -402,6 +399,19 @@ else {
   else {
     $DebugPreference = "SilentlyContinue"
   }
+# Set working dir
+  $EACCFolder = $EAInitParams.WorkingDir
+# Check whether this folder exists if not then create it
+if ( Test-Path -Path $EACCFolder ) {
+    Write-Debug -Message "Working folder $EACCFolder exists"
+  }
+  else {
+      New-Item -Path $EACCFolder -ItemType Directory
+      Write-Debug -Message "Created working directory $EACCFolder"
+      }
+# Set port
+  $EATicketPort = $EAInitParams.Port
+# Set Main CPU address
 if ( $EAInitParams.CPU1 ) {
   [ipaddress]$EAOXECPU1 = $EAInitParams.CPU1
   Write-Debug -Message "1st CPU defined $EAOXECPU1"
