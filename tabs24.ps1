@@ -43,7 +43,8 @@ This script uses ALU netaccess protocol for receiving real-time CDR, VoIP and MA
 #
 $StartCounter = 0
 # This ticket fields data is generated from uncompressed TAX*.DAT file header. Could be extracted with this line from any accounting file
-# cp /usr4/account/TAXBAWKO.DAT . ; mv TAXBAWKO.DAT TAXBAWKO.Z |  compress -d -c TAXBAWKO.Z | head -n 1 |  tr -d "#" | awk '{ORS=NR%4?",":"\n"}1' RS=, | tr "," "\t" > header.dat
+# read myfile < <(ls /usr4/account/TA*.DAT | tail -n 1) ; cp $myfile . ; mv $(basename "$myfile")  $(basename "$myfile" ".DAT").Z ; compress -d -c $(basename "$myfile" ".DAT").Z | head -n 1 |  tr -d "#" | awk '{ORS=NR%4?",":"\n"}1' RS=, | tr "," "\t" > header.dat
+
 $TicketFields = @(4, 5, 30, 30, 20, 10, 16, 5, 20, 30, 2, 1, 17, 5, 10, 10, 5, 5, 5, 1, 16, 7, 1, 2, 10, 5, 40, 40, 10, 10, 10, 10, 1, 2, 2, 2, 30, 5, 10, 1, 17, 30, 5, 5, 5, 5, 5, 6, 6)
 $FieldsNames = @("TicketLabel", "TicketVersion", "CalledNumber", "ChargedNumber", "ChargedUserName", "ChargedCostCenter", "ChargedCompany", "ChargedPartyNode", "Subaddress", "CallingNumber", "CallType", "CostType", "EndDateTime", "ChargeUnits", "CostInfo", "Duration", "TrunkIdentity", "TrunkGroupIdentity", "TrunkNode", "PersonalOrBusiness", "AccessCode", "SpecificChargeInfo", "BearerCapability", "HighLevelComp", "DataVolume", "UserToUserVolume", "ExternalFacilities", "InternalFacilities", "CallReference", "SegmentsRate1", "SegmentsRate2", "SegmentsRate3", "ComType", "X25IncomingFlowRate", "X25OutgoingFlowRate", "Carrier", "InitialDialledNumber", "WaitingDuration", "EffectiveCallDuration", "RedirectedCallIndicator", "StartDateTime", "ActingExtensionNumber", "CalledNumberNode", "CallingNumberNode", "InitialDialledNumberNode", "ActingExtensionNumberNode", "TransitTrunkGroupIdentity", "NodeTimeOffset", "TimeDlt")
 #
