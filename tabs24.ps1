@@ -37,7 +37,7 @@ This script uses ALU netaccess protocol for receiving real-time CDR, VoIP and MA
 #
 #Requires -Version 5
 #
-[version]$EAScriptVersion="0.9.7"
+[version]$EAScriptVersion=(Test-ScriptFileInfo ($MyInvocation.MyCommand.Definition)).Version.ToString()
 #
 # Counter for main loop reenters (switchovers, e.g.)
 #
@@ -465,7 +465,6 @@ foreach ($p in $EAInitParams.Keys)
   Write-Debug  "$p : $($EAInitParams.Item($p))"
 }
 #exit
-
 # Check if script is already runnung
 #
 if (-not (Test-Path $EALockFile)) {
