@@ -53,7 +53,7 @@
  * Only one client can receive tickets on Ethernet so this script uses .lock file ($EALockFile) for check whether it's already running
  * After Ctrl-C was pressed it takes some time to return to command prompt - just wait up to 30 seconds or press Ctrl-C several times
  * For questions you could use "Discussion" button here and create a topic or use already existing one
- * For faster compiled version Rust section is added with Rust source 
+ * For faster compiled version Rust section is added with Rust source created from Poweshell source with the help of AI (CodingFleet)
 # To-Do
  * ~~Ctrl-C processing inside the script for clean break~~ Done
  * ~~Spatial Redundancy and switchover support~~ Done
